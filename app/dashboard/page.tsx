@@ -32,6 +32,7 @@ import {
 } from 'lucide-react'
 import { createClient } from '@supabase/supabase-js'
 import { getBalance, getTransactions, initializeBalance } from '@/lib/balance-store'
+import { getTimeBasedGreeting } from '@/lib/lib/greeting'
 
 export default function DashboardPage() {
   const router = useRouter()
@@ -49,6 +50,7 @@ export default function DashboardPage() {
   const [mounted, setMounted] = useState(false)
   const [activeTab, setActiveTab] = useState('home')
   const [currentBannerIndex, setCurrentBannerIndex] = useState(0)
+  const [greeting, setGreeting] = useState('Good Morning')
 
   // Promotional banners
   const banners = [
@@ -212,6 +214,8 @@ export default function DashboardPage() {
 
   useEffect(() => {
     setMounted(true)
+    // Set time-based greeting on client side
+    setGreeting(getTimeBasedGreeting())
     // Only run on client side
     if (typeof window !== 'undefined') {
       loadUserData()
@@ -395,7 +399,7 @@ export default function DashboardPage() {
                   )}
                 </label>
                 <div>
-                  <p className="text-gray-500 text-xs">Good Morning</p>
+                  <p className="text-gray-500 text-xs">{greeting}</p>
                   <h2 className="text-base font-bold text-gray-900">{fullName}</h2>
                 </div>
               </div>
