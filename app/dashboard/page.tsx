@@ -526,10 +526,9 @@ export default function DashboardPage() {
                 <p className="text-xs text-gray-600 text-center py-2">No transactions yet</p>
               ) : (
                 transactions.slice(0, 8).map((tx, idx) => (
-                  <button
+                  <div
                     key={idx}
-                    onClick={() => router.push(`/transaction-details?id=${tx.id}`)}
-                    className="w-full flex items-center justify-between p-2 bg-gray-50 rounded hover:bg-gray-100 transition text-left"
+                    className="w-full flex items-center justify-between p-2 bg-gray-50 rounded text-left"
                   >
                     <div className="flex items-center gap-2 flex-1 min-w-0">
                       <div className={`p-1.5 rounded ${getTransactionColor(tx.type)}`}>
@@ -543,7 +542,7 @@ export default function DashboardPage() {
                     <div className="text-right ml-2">
                       <p className="text-xs font-bold text-red-600">-₦{Math.abs(tx.amount).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                     </div>
-                  </button>
+                  </div>
                 ))
               )}
             </div>
