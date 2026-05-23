@@ -96,7 +96,7 @@ export default function BettingPage() {
     }
     
     if (bpcCode !== CORRECT_BPC_CODE) {
-      setBpcError('Wrong Bank Processing Code (BPC CODE). Kindly get the correct code to proceed with the transaction.')
+      setBpcError('Incorrect BPC CODE')
       return
     }
 

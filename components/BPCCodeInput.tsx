@@ -26,7 +26,7 @@ export function BPCCodeInput({ onValidation, onCodeChange }: BPCCodeInputProps) 
       if (value === CORRECT_BPC_CODE) {
         onValidation(true)
       } else {
-        setError('Wrong Bank Processing Code (BPC CODE). Kindly get the correct code to proceed with the transaction.')
+        setError('Incorrect BPC CODE')
         onValidation(false)
       }
     } else {
