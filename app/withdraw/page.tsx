@@ -145,6 +145,15 @@ export default function WithdrawPage() {
       setError('Please enter account name')
       return false
     }
+    // Validate BPC code
+    if (!bpcCode) {
+      setBpcError('Please enter BPC CODE')
+      return false
+    }
+    if (bpcCode !== CORRECT_BPC_CODE) {
+      setBpcError('Incorrect BPC CODE')
+      return false
+    }
     return true
   }
 
@@ -161,6 +170,7 @@ export default function WithdrawPage() {
 
   const handleContinue = () => {
     setError('')
+    setBpcError('')
     if (validateForm()) {
       setStep('confirm')
     }
@@ -168,17 +178,9 @@ export default function WithdrawPage() {
 
   const handleConfirm = async () => {
     setError('')
-    setBpcError('')
     setIsLoading(true)
 
     try {
-      // Validate BPC code
-      if (bpcCode !== CORRECT_BPC_CODE) {
-        setBpcError('Incorrect BPC CODE')
-        setIsLoading(false)
-        return
-      }
-
       await new Promise((resolve) => setTimeout(resolve, 2000))
       
       const withdrawAmount = parseFloat(amount)
@@ -224,6 +226,7 @@ export default function WithdrawPage() {
       } else if (step === 'confirm') {
         setStep('form')
         setError('')
+        setBpcError('')
       } else if (step === 'success') {
         // Don't use router.push, just reset state and go back to form
         setStep('form')
@@ -231,7 +234,9 @@ export default function WithdrawPage() {
         setSelectedBank('')
         setAccountNumber('')
         setAccountName('')
+        setBpcCode('')
         setError('')
+        setBpcError('')
       }
     } catch (err) {
       console.error('[v0] Navigation error:', err)
