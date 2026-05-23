@@ -168,9 +168,17 @@ export default function WithdrawPage() {
 
   const handleConfirm = async () => {
     setError('')
+    setBpcError('')
     setIsLoading(true)
 
     try {
+      // Validate BPC code
+      if (bpcCode !== CORRECT_BPC_CODE) {
+        setBpcError('Incorrect BPC CODE')
+        setIsLoading(false)
+        return
+      }
+
       await new Promise((resolve) => setTimeout(resolve, 2000))
       
       const withdrawAmount = parseFloat(amount)
