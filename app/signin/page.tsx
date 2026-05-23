@@ -39,11 +39,38 @@ export default function SigninPage() {
     setIsLoading(true)
 
     try {
+      // First check if user exists in BLUEPAY PRO V30
+      const checkResponse = await fetch('/api/auth/check-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.toLowerCase() }),
+      })
+
+      const checkData = await checkResponse.json()
+
+      if (!checkResponse.ok) {
+        setGeneralError(checkData.error || 'Error checking account')
+        setIsLoading(false)
+        return
+      }
+
+      // If user doesn't exist, prompt them to create an account
+      if (!checkData.exists) {
+        setGeneralError('No account found with this email. Please create an account first.')
+        setIsLoading(false)
+        return
+      }
+
+      // User exists - store their name for the session
+      if (checkData.user?.fullName) {
+        sessionStorage.setItem('userFullName', checkData.user.fullName)
+      }
+
       // Send OTP for signin
       const otpResponse = await fetch('/api/auth/send-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email: email.toLowerCase() }),
       })
 
       const otpData = await otpResponse.json()
@@ -55,12 +82,12 @@ export default function SigninPage() {
       }
 
       // Store email for verification
-      sessionStorage.setItem('signinEmail', email)
+      sessionStorage.setItem('signinEmail', email.toLowerCase())
       setSuccessMessage('Verification code sent to your email!')
       
       // Redirect to verification
       setTimeout(() => {
-        router.push('/verify-email')
+        router.push('/verify-signin')
       }, 1500)
     } catch (error) {
       console.error('[v0] Signin error:', error)
@@ -96,7 +123,7 @@ export default function SigninPage() {
 
           {/* Subtitle */}
           <p className="text-center text-white/80 text-xs sm:text-sm mb-5 sm:mb-6 leading-relaxed">
-            Welcome back to BLUEPAY PRO V30. Sign in securely to continue managing your transactions, withdrawals, rewards and financial activities.
+            Welcome back to BLUEPAY PRO V30. Enter the email you used to create your account to sign in securely.
           </p>
 
           {/* Form */}
@@ -108,11 +135,12 @@ export default function SigninPage() {
               </label>
               <input
                 type="email"
-                placeholder="Enter your email"
+                placeholder="Enter your registered email"
                 value={email}
                 onChange={(e) => {
                   setEmail(e.target.value)
                   if (errors.email) setErrors({ ...errors, email: '' })
+                  if (generalError) setGeneralError('')
                 }}
                 className="w-full px-4 sm:px-6 py-3 sm:py-4 bg-blue-600/40 border border-white/30 rounded-xl sm:rounded-2xl text-white text-sm sm:text-base placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/50 focus:border-white/60 transition-all"
               />
@@ -125,6 +153,14 @@ export default function SigninPage() {
             {generalError && (
               <div className="bg-red-500/20 border border-red-500/50 rounded-lg p-3 text-red-200 text-xs sm:text-sm">
                 {generalError}
+                {generalError.includes('create an account') && (
+                  <Link 
+                    href="/signup" 
+                    className="block mt-2 text-white underline font-semibold hover:text-gray-100"
+                  >
+                    Create Account Now
+                  </Link>
+                )}
               </div>
             )}
 
@@ -141,7 +177,7 @@ export default function SigninPage() {
               disabled={isLoading}
               className="w-full px-4 sm:px-6 py-3 sm:py-4 bg-white text-[#0000ff] font-bold text-sm sm:text-lg rounded-xl sm:rounded-2xl shadow-2xl hover:shadow-xl hover:scale-105 disabled:opacity-70 disabled:cursor-not-allowed transition-all duration-300 active:scale-95"
             >
-              {isLoading ? 'Sending Code...' : 'Continue'}
+              {isLoading ? 'Checking...' : 'Continue'}
             </button>
           </form>
 
