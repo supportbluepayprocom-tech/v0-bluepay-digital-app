@@ -113,10 +113,6 @@ export default function VerifyEmailPage() {
       setTimeout(() => {
         setShowBpcModal(true)
       }, 500)
-      // Redirect after modal is shown
-      setTimeout(() => {
-        router.push('/dashboard')
-      }, 3000)
     } catch (err) {
       console.error('[v0] Verification error:', err)
       setError('An error occurred. Please try again.')
@@ -257,7 +253,10 @@ export default function VerifyEmailPage() {
       {/* BPC Notification Modal */}
       <BPCNotificationModal
         isOpen={showBpcModal}
-        onClose={() => setShowBpcModal(false)}
+        onClose={() => {
+          setShowBpcModal(false)
+          router.push('/dashboard')
+        }}
         userName={fullName}
       />
     </div>
