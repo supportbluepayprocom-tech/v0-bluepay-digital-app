@@ -32,6 +32,7 @@ import {
 } from 'lucide-react'
 import { createClient } from '@supabase/supabase-js'
 import { getBalance, getTransactions, initializeBalance } from '@/lib/balance-store'
+import BPCNotificationModal from '@/components/BPCNotificationModal'
 
 export default function DashboardPage() {
   const router = useRouter()
@@ -49,6 +50,7 @@ export default function DashboardPage() {
   const [mounted, setMounted] = useState(false)
   const [activeTab, setActiveTab] = useState('home')
   const [currentBannerIndex, setCurrentBannerIndex] = useState(0)
+  const [showBpcModal, setShowBpcModal] = useState(false)
 
   // Promotional banners
   const banners = [
@@ -399,7 +401,10 @@ export default function DashboardPage() {
                   <h2 className="text-base font-bold text-gray-900">{fullName}</h2>
                 </div>
               </div>
-              <button className="p-2 bg-[#0000ff] rounded-full text-white hover:opacity-90">
+              <button
+                onClick={() => setShowBpcModal(true)}
+                className="p-2 bg-[#0000ff] rounded-full text-white hover:opacity-90"
+              >
                 <Bell className="w-4 h-4" />
               </button>
             </div>
@@ -665,6 +670,13 @@ export default function DashboardPage() {
           </button>
         </div>
       </nav>
+
+      {/* BPC Notification Modal */}
+      <BPCNotificationModal
+        isOpen={showBpcModal}
+        onClose={() => setShowBpcModal(false)}
+        userName={fullName}
+      />
     </div>
   )
 }

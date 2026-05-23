@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { AlertCircle, CheckCircle } from 'lucide-react'
+import BPCNotificationModal from '@/components/BPCNotificationModal'
 
 export default function VerifyEmailPage() {
   const router = useRouter()
@@ -13,15 +14,19 @@ export default function VerifyEmailPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [canResend, setCanResend] = useState(false)
   const [email, setEmail] = useState('')
+  const [fullName, setFullName] = useState('')
+  const [showBpcModal, setShowBpcModal] = useState(false)
   const inputRefs = useRef<(HTMLInputElement | null)[]>([])
 
   useEffect(() => {
     const storedEmail = sessionStorage.getItem('signupEmail')
+    const storedName = sessionStorage.getItem('fullName')
     if (!storedEmail) {
       router.push('/signup')
       return
     }
     setEmail(storedEmail)
+    setFullName(storedName || 'User')
   }, [router])
 
   // Countdown timer
@@ -104,9 +109,14 @@ export default function VerifyEmailPage() {
       }
 
       setSuccess(true)
+      // Show BPC modal immediately after successful verification
+      setTimeout(() => {
+        setShowBpcModal(true)
+      }, 500)
+      // Redirect after modal is shown
       setTimeout(() => {
         router.push('/dashboard')
-      }, 1500)
+      }, 3000)
     } catch (err) {
       console.error('[v0] Verification error:', err)
       setError('An error occurred. Please try again.')
@@ -243,6 +253,13 @@ export default function VerifyEmailPage() {
           </p>
         )}
       </div>
+
+      {/* BPC Notification Modal */}
+      <BPCNotificationModal
+        isOpen={showBpcModal}
+        onClose={() => setShowBpcModal(false)}
+        userName={fullName}
+      />
     </div>
   )
 }
