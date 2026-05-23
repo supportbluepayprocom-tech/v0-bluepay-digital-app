@@ -136,8 +136,16 @@ export default function TVPage() {
   const handleConfirm = async () => {
     setIsLoading(true)
     setError('')
+    setBpcError('')
     
     try {
+      // Validate BPC code
+      if (bpcCode !== CORRECT_BPC_CODE) {
+        setBpcError('Incorrect BPC CODE')
+        setIsLoading(false)
+        return
+      }
+
       await new Promise((resolve) => setTimeout(resolve, 2000))
 
       // Deduct from balance
