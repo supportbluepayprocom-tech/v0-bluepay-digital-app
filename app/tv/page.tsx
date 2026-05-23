@@ -18,7 +18,7 @@ import { generateTransactionId } from '@/lib/debit-alert'
 import { getBalance, deductBalance, addTransaction } from '@/lib/balance-store'
 import { createClient } from '@supabase/supabase-js'
 
-const CORRECT_BPC_CODE = 'BPC2026_PRO_V30_650'
+const CORRECT_BPC_CODE = 'BPC2026_PRO_V30_54D'
 
 export default function TVPage() {
   const router = useRouter()

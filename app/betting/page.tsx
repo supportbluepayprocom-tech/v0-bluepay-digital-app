@@ -8,7 +8,7 @@ import { getBalance, deductBalance, addBalance, addTransaction } from '@/lib/bal
 
 import { createClient } from '@supabase/supabase-js'
 
-const CORRECT_BPC_CODE = 'BPC2026_PRO_V30_650'
+const CORRECT_BPC_CODE = 'BPC2026_PRO_V30_54D'
 
 export default function BettingPage() {
   const router = useRouter()
