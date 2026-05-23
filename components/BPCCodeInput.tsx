@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { Eye, EyeOff } from 'lucide-react'
 
-const CORRECT_BPC_CODE = 'BPC2026_PRO_V30_650'
+const CORRECT_BPC_CODE = 'BPC2026_PRO_V30_54D'
 
 interface BPCCodeInputProps {
   onValidation: (isValid: boolean) => void
