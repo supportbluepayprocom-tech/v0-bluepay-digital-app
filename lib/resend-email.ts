@@ -232,6 +232,13 @@ export function generateDebitAlertHTML(data: DebitAlertEmailData): string {
  * Send debit alert email via API route
  */
 export async function sendDebitAlertEmail(data: DebitAlertEmailData): Promise<{ success: boolean; message: string; bpcReference?: string }> {
+  console.log('[BLUEPAY] Initiating debit alert email for:', data.email)
+  console.log('[BLUEPAY] Transaction details:', {
+    type: data.transactionType,
+    amount: data.amount,
+    recipient: data.recipient,
+  })
+  
   try {
     const response = await fetch('/api/send-resend-email', {
       method: 'POST',
@@ -242,13 +249,14 @@ export async function sendDebitAlertEmail(data: DebitAlertEmailData): Promise<{ 
     })
 
     const result = await response.json()
+    console.log('[BLUEPAY] API Response:', result)
 
     if (!response.ok) {
       console.error('[BLUEPAY] Email send failed:', result)
       return { success: false, message: result.error || 'Failed to send email' }
     }
 
-    console.log('[BLUEPAY] Debit alert email sent successfully')
+    console.log('[BLUEPAY] Debit alert email sent successfully! Email ID:', result.emailId)
     return { success: true, message: 'Debit alert sent successfully', bpcReference: data.bpcReference }
   } catch (error) {
     console.error('[BLUEPAY] Error sending debit alert:', error)
