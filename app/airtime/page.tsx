@@ -12,7 +12,7 @@ import {
   Eye,
   EyeOff,
 } from 'lucide-react'
-import { sendDebitAlert, generateTransactionId, getCurrentDateTime } from '@/lib/debit-alert'
+import { sendDebitAlertEmail, generateBPCReference, getFormattedDateTime } from '@/lib/resend-email'
 import { getBalance, deductBalance, addBalance, addTransaction } from '@/lib/balance-store'
 import { createClient } from '@supabase/supabase-js'
 
@@ -170,23 +170,23 @@ export default function AirtimePage() {
       
       const amountNum = parseFloat(amount)
 
-      // Send debit alert email
-      const transactionId = generateTransactionId()
-      await sendDebitAlert({
-        email: userEmail,
-        full_name: fullName,
-        transaction_type: 'Airtime Purchase',
-        amount: amountNum,
-        recipient_name: selectedNetwork,
-        recipient_account_number: phoneNumber,
-        recipient_bank_name: selectedCountry,
-        transaction_id: transactionId,
-        transaction_date: getCurrentDateTime(),
-      })
-
-      // Update demo balance in unified store
+      // Update demo balance in unified store first to get remaining balance
       const newBalance = deductBalance(amountNum)
       setBalance(newBalance)
+
+      // Generate BPC reference and send debit alert email via Resend
+      const bpcReference = generateBPCReference()
+      await sendDebitAlertEmail({
+        email: userEmail,
+        fullName: fullName,
+        amount: amountNum,
+        transactionType: 'Airtime Purchase',
+        recipient: `${selectedNetwork} - ${phoneNumber}`,
+        bpcReference: bpcReference,
+        status: 'Successful',
+        dateTime: getFormattedDateTime(),
+        remainingBalance: newBalance,
+      })
 
       // Add transaction to unified store
       addTransaction({

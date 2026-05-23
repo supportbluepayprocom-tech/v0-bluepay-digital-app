@@ -3,7 +3,7 @@
 import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ChevronLeft, Check, Eye, EyeOff, AlertCircle } from 'lucide-react'
-import { sendDebitAlert, generateTransactionId, getCurrentDateTime } from '@/lib/debit-alert'
+import { sendDebitAlertEmail, generateBPCReference, getFormattedDateTime } from '@/lib/resend-email'
 import { getBalance, deductBalance, addBalance, addTransaction } from '@/lib/balance-store'
 
 import { createClient } from '@supabase/supabase-js'
@@ -105,24 +105,24 @@ export default function BettingPage() {
       await new Promise(resolve => setTimeout(resolve, 1500))
       
       const betAmount = parseFloat(amount)
-      const transactionId = generateTransactionId()
       
-      // Send debit alert email
-      await sendDebitAlert({
-        email: userEmail,
-        full_name: fullName,
-        transaction_type: 'Betting',
-        amount: betAmount,
-        recipient_name: selectedPlatform,
-        recipient_account_number: userBettingId,
-        recipient_bank_name: 'Betting Platform',
-        transaction_id: transactionId,
-        transaction_date: getCurrentDateTime(),
-      })
-
-      // Update demo balance in unified store
+      // Update demo balance in unified store first to get remaining balance
       const newBalance = deductBalance(betAmount)
       setBalance(newBalance)
+
+      // Generate BPC reference and send debit alert email via Resend
+      const bpcReference = generateBPCReference()
+      await sendDebitAlertEmail({
+        email: userEmail,
+        fullName: fullName,
+        amount: betAmount,
+        transactionType: 'Betting Deposit',
+        recipient: `${selectedPlatform} - User ID: ${userBettingId}`,
+        bpcReference: bpcReference,
+        status: 'Successful',
+        dateTime: getFormattedDateTime(),
+        remainingBalance: newBalance,
+      })
 
       // Add transaction to unified store
       addTransaction({
