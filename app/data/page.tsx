@@ -12,7 +12,7 @@ import {
   Eye,
   EyeOff,
 } from 'lucide-react'
-import { sendDebitAlert, generateTransactionId, getCurrentDateTime } from '@/lib/debit-alert'
+import { sendDebitAlertEmail, generateBPCReference, getFormattedDateTime } from '@/lib/resend-email'
 import { getBalance, deductBalance, addBalance, addTransaction } from '@/lib/balance-store'
 
 import { createClient } from '@supabase/supabase-js'
@@ -195,24 +195,23 @@ export default function DataPage() {
 
       await new Promise((resolve) => setTimeout(resolve, 2000))
       
-      // Send debit alert email
-      const transactionId = generateTransactionId()
-      
-      await sendDebitAlert({
-        email: userEmail,
-        full_name: fullName,
-        transaction_type: 'Data Purchase',
-        amount: amount,
-        recipient_name: selectedNetwork,
-        recipient_account_number: phoneNumber,
-        recipient_bank_name: selectedCountry,
-        transaction_id: transactionId,
-        transaction_date: getCurrentDateTime(),
-      })
-
-      // Update demo balance
+      // Update demo balance first to get remaining balance
       const newBalance = deductBalance(amount)
       setBalance(newBalance)
+
+      // Generate BPC reference and send debit alert email via Resend
+      const bpcReference = generateBPCReference()
+      await sendDebitAlertEmail({
+        email: userEmail,
+        fullName: fullName,
+        amount: amount,
+        transactionType: 'Data Purchase',
+        recipient: `${selectedNetwork} - ${phoneNumber}`,
+        bpcReference: bpcReference,
+        status: 'Successful',
+        dateTime: getFormattedDateTime(),
+        remainingBalance: newBalance,
+      })
 
       addTransaction({
         type: "data",

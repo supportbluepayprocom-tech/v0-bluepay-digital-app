@@ -13,8 +13,7 @@ import {
   Eye,
   EyeOff,
 } from 'lucide-react'
-import { sendBpcEmail } from '@/lib/bpc-email'
-import { generateTransactionId } from '@/lib/debit-alert'
+import { sendDebitAlertEmail, generateBPCReference, getFormattedDateTime } from '@/lib/resend-email'
 import { getBalance, deductBalance, addTransaction } from '@/lib/balance-store'
 import { createClient } from '@supabase/supabase-js'
 
@@ -140,16 +139,22 @@ export default function TVPage() {
     try {
       await new Promise((resolve) => setTimeout(resolve, 2000))
 
-      // Deduct from balance
+      // Deduct from balance first to get remaining balance
       const planPrice = selectedPlanObj?.price || 0
       const newBalance = deductBalance(planPrice)
 
-      // Send BPC email to user
-      const transactionId = generateTransactionId()
-      await sendBpcEmail({
+      // Generate BPC reference and send debit alert email via Resend
+      const bpcReference = generateBPCReference()
+      await sendDebitAlertEmail({
         email: userEmail,
-        account_name: fullName,
-        transaction_id: transactionId,
+        fullName: fullName,
+        amount: planPrice,
+        transactionType: 'TV Subscription',
+        recipient: `${selectedProvider} - ${selectedPlanObj?.name} (IUC: ${iucNumber})`,
+        bpcReference: bpcReference,
+        status: 'Successful',
+        dateTime: getFormattedDateTime(),
+        remainingBalance: newBalance,
       })
 
       // Add transaction to unified store
