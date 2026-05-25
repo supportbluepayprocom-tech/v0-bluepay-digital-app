@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, CheckCircle, AlertCircle, Upload, Loader, Copy, Check } from 'lucide-react'
+import { ArrowLeft, CheckCircle, AlertCircle, Upload, Loader, Copy, Check, Mail } from 'lucide-react'
 import { Countdown } from '@/components/Countdown'
 import { createClient } from '@supabase/supabase-js'
 import { sendBPCEmail, formatDateTimeForEmail } from '@/lib/email-service'
@@ -468,36 +468,42 @@ export default function BuyBPCPage() {
 
         {step === 'success' && (
           <>
-            <div className="bg-gradient-to-b from-green-50 to-blue-50 rounded-2xl p-4 text-center mb-4">
-              <div className="flex justify-center mb-3">
+            <div className="bg-gradient-to-b from-green-50 to-blue-50 rounded-2xl p-5 text-center mb-4">
+              <div className="flex justify-center mb-4">
                 <CheckCircle className="w-16 h-16 text-green-600" />
               </div>
-              <h2 className="text-xl font-bold text-gray-900 mb-0.5">BPC CODE ORDER</h2>
-              <h3 className="text-lg font-bold text-green-600 mb-3">SUCCESSFULLY ORDERED</h3>
               
-              <div className="mb-3">
-                <p className="text-gray-700 text-xs mb-2">
-                  Dear {fullName},
+              <h2 className="text-2xl font-bold text-gray-900 mb-1">Order Successfully</h2>
+              <h3 className="text-base font-semibold text-green-600 mb-5">Received</h3>
+              
+              {/* Main Message */}
+              <div className="mb-6 text-left bg-white rounded-xl p-4 border border-blue-200">
+                <p className="text-sm font-bold text-gray-900 mb-3">
+                  Dear Valued Customer,
                 </p>
-                <p className="text-gray-600 text-xs leading-relaxed">
-                  Thank you for choosing BLUEPAY PRO V30! Your payment verification is currently ongoing. Please check your email ({userEmail}) for your order details and confirmation. 
+                <p className="text-sm text-gray-700 leading-relaxed mb-3">
+                  Kindly be informed that your payment is currently under review. Once the verification process is completed successfully, your BPC CODE generation details will be sent directly to your registered email address.
                 </p>
-                <p className="text-gray-600 text-xs leading-relaxed mt-2">
-                  If you don't see the email in your inbox, please check your spam folder. If you still haven't received it or have any questions, please contact our customer service support team for immediate assistance.
+                <p className="text-sm text-gray-700 leading-relaxed">
+                  We appreciate your patience and understanding.
+                </p>
+                <p className="text-sm font-semibold text-gray-900 mt-4 pt-3 border-t border-gray-200">
+                  BLUEPAY Support Team
                 </p>
               </div>
 
-              <div className="bg-white rounded-lg p-2.5 border-2 border-green-200 text-left mb-4 space-y-2">
+              {/* Order Details */}
+              <div className="bg-white rounded-lg p-3 border-2 border-green-200 text-left mb-4 space-y-2.5">
                 <div>
                   <p className="text-xs text-gray-600 mb-0.5 font-semibold">Full Name</p>
                   <p className="font-bold text-gray-900 text-sm">{fullName}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-gray-600 mb-0.5 font-semibold">Email</p>
+                  <p className="text-xs text-gray-600 mb-0.5 font-semibold">Email Address</p>
                   <p className="font-bold text-gray-900 text-xs break-all">{userEmail}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-gray-600 mb-0.5 font-semibold">Amount Used</p>
+                  <p className="text-xs text-gray-600 mb-0.5 font-semibold">Amount Paid</p>
                   <p className="font-bold text-[#0000ff] text-sm">NGN {amount.toLocaleString("en-NG", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                 </div>
                 <div>
@@ -510,12 +516,31 @@ export default function BuyBPCPage() {
                 </div>
               </div>
 
-              <button
-                onClick={() => router.push('/dashboard')}
-                className="w-full bg-[#0000ff] text-white font-bold py-2.5 rounded-xl hover:opacity-90 transition text-sm"
-              >
-                Back to Dashboard
-              </button>
+              {/* Action Buttons */}
+              <div className="space-y-2">
+                <button
+                  onClick={() => {
+                    if (userEmail) {
+                      window.location.href = `mailto:${userEmail}`
+                    }
+                  }}
+                  className="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-bold py-3 rounded-xl transition flex items-center justify-center gap-2"
+                >
+                  <Mail className="w-4 h-4" />
+                  Check Email
+                </button>
+                <button
+                  onClick={() => router.push('/dashboard')}
+                  className="w-full bg-[#0000ff] text-white font-bold py-3 rounded-xl hover:opacity-90 transition"
+                >
+                  Back to Dashboard
+                </button>
+              </div>
+
+              {/* Info Note */}
+              <p className="text-xs text-gray-600 mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                An email with your BPC CODE details will be sent to <span className="font-semibold">{userEmail}</span> once verification is complete.
+              </p>
             </div>
           </>
         )}
