@@ -520,9 +520,10 @@ export default function BuyBPCPage() {
               <div className="space-y-2">
                 <button
                   onClick={() => {
-                    if (userEmail) {
-                      window.location.href = `mailto:${userEmail}`
-                    }
+                    const supportEmail = 'supportbluepaypro.com@gmail.com'
+                    const subject = `BPC CODE Order Support - ${sessionId}`
+                    const body = `Hello BLUEPAY Support Team,%0A%0AI am following up on my recent BPC CODE order.%0A%0AOrder Details:%0AName: ${fullName}%0AEmail: ${userEmail}%0ATransaction ID: ${sessionId}%0AAmount: NGN ${amount}%0A%0APlease assist me with my order.%0A%0AThank you.`
+                    window.open(`mailto:${supportEmail}?subject=${subject}&body=${body}`, '_self')
                   }}
                   className="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-bold py-3 rounded-xl transition flex items-center justify-center gap-2"
                 >
