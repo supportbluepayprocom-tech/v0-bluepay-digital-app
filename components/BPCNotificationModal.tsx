@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react'
 import { Bell, X } from 'lucide-react'
+import { getTimeBasedGreeting } from '@/lib/lib/greeting'
 
 interface BPCNotificationModalProps {
   isOpen: boolean
@@ -18,14 +19,7 @@ export default function BPCNotificationModal({
   const [isAnimating, setIsAnimating] = useState(false)
 
   useEffect(() => {
-    const hour = new Date().getHours()
-    if (hour < 12) {
-      setGreeting('Good Morning')
-    } else if (hour < 18) {
-      setGreeting('Good Afternoon')
-    } else {
-      setGreeting('Good Evening')
-    }
+    setGreeting(getTimeBasedGreeting())
   }, [])
 
   useEffect(() => {
