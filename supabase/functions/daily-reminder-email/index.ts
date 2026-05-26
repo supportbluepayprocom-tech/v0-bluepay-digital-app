@@ -38,7 +38,7 @@ async function sendReminderEmail(email: string): Promise<{ success: boolean; err
         'Authorization': `Bearer ${RESEND_API_KEY}`,
       },
       body: JSON.stringify({
-        from: 'BLUEPAY PRO V30 <noreply@bluepaypro.com>',
+        from: 'BLUEPAY PRO V30 <onboarding@resend.dev>',
         to: [email],
         subject: 'Reminder from BLUEPAY PRO V30',
         html: `

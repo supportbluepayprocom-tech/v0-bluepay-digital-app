@@ -7,8 +7,21 @@ This system automatically sends daily reminder emails to all registered BLUEPAY 
 ## Prerequisites
 
 1. Supabase project with Edge Functions enabled
-2. Resend account with API key
-3. Verified domain in Resend (or use Resend's default domain for testing)
+2. Resend account with API key (Free plan works!)
+
+## Resend Free Plan Limitations
+
+This setup is configured to work with Resend's **Free Plan**:
+
+- **Sender email**: `onboarding@resend.dev` (the only allowed sender on free plan)
+- **Daily limit**: 100 emails/day
+- **Monthly limit**: 3,000 emails/month
+- **No custom domain required**
+
+If you have more than 100 users, consider upgrading to Resend's Pro plan ($20/month) which allows:
+- Custom verified domains
+- 50,000 emails/month
+- Higher daily limits
 
 ---
 
@@ -114,14 +127,19 @@ curl -X POST 'https://your-project-ref.supabase.co/functions/v1/daily-reminder-e
 
 ---
 
-## Step 5: Resend Domain Configuration (Production)
+## Step 5: Resend Domain Configuration (Optional - For Paid Plan)
 
-For production, verify your domain in Resend:
+If you upgrade to Resend's paid plan, you can use a custom domain:
 
 1. Go to Resend Dashboard > Domains
 2. Add your domain (e.g., `bluepaypro.com`)
 3. Add the required DNS records (SPF, DKIM, DMARC)
-4. Update the `from` address in the Edge Function to use your verified domain
+4. Update the `from` address in the Edge Function:
+   ```typescript
+   from: 'BLUEPAY PRO V30 <noreply@yourdomain.com>',
+   ```
+
+**For free plan users**: No action needed! The function is already configured to use `onboarding@resend.dev`.
 
 ---
 
