@@ -1,0 +1,4 @@
+{
+  "runtime": "deno",
+  "region": ["us-east-1"]
+}
