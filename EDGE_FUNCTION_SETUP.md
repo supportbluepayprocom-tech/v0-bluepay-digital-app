@@ -3,7 +3,7 @@
 ## Prerequisites
 
 1. Supabase project set up and running
-2. Mailgun account with a verified domain
+2. Resend account (https://resend.com)
 3. Supabase CLI installed (`brew install supabase` or `npm install -g @supabase/cli`)
 4. Deno installed (comes with Supabase CLI)
 
@@ -13,9 +13,8 @@
 - `SUPABASE_URL`: From Project Settings → API → Project URL
 - `SUPABASE_SERVICE_ROLE_KEY`: From Project Settings → API → Service Role (secret)
 
-### Mailgun
-- `MAILGUN_API_KEY`: From Mailgun Account Settings → API Keys → Private API Key
-- `MAILGUN_DOMAIN`: Your verified domain (e.g., `mg.bluepay.pro`)
+### Resend
+- `RESEND_API_KEY`: From Resend Dashboard → API Keys → Copy your API key
 
 ## Step 2: Deploy the Edge Function
 
@@ -53,8 +52,7 @@ Add to your GitHub workflow:
 ```
 SUPABASE_URL = https://xxxxx.supabase.co
 SUPABASE_SERVICE_ROLE_KEY = eyJhbGc...
-MAILGUN_API_KEY = key-xxxxx
-MAILGUN_DOMAIN = mg.bluepay.pro
+RESEND_API_KEY = re_xxxxx
 ```
 
 ### Via Supabase CLI
@@ -62,8 +60,7 @@ MAILGUN_DOMAIN = mg.bluepay.pro
 ```bash
 supabase secrets set SUPABASE_URL="https://xxxxx.supabase.co"
 supabase secrets set SUPABASE_SERVICE_ROLE_KEY="eyJhbGc..."
-supabase secrets set MAILGUN_API_KEY="key-xxxxx"
-supabase secrets set MAILGUN_DOMAIN="mg.bluepay.pro"
+supabase secrets set RESEND_API_KEY="re_xxxxx"
 ```
 
 ## Step 4: Test the Function
@@ -141,10 +138,11 @@ Configure Supabase alerts for function failures:
 
 ### Emails Not Sending
 
-1. Verify `MAILGUN_API_KEY` is correct
-2. Confirm `MAILGUN_DOMAIN` is verified in Mailgun
-3. Check function logs for Mailgun error responses
+1. Verify `RESEND_API_KEY` is correct and active
+2. Check Resend dashboard for rate limits
+3. Check function logs for Resend error responses
 4. Ensure API key has permission to send emails
+5. Verify recipient emails are valid email addresses
 
 ### "Missing environment variables" Error
 

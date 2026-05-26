@@ -1,7 +1,7 @@
 # Daily Reminder Email Edge Function
 
 ## Overview
-This Supabase Edge Function sends automated daily reminder emails to all registered users in the BLUEPAY PRO V30 platform using Mailgun as the email service provider.
+This Supabase Edge Function sends automated daily reminder emails to all registered users in the BLUEPAY PRO V30 platform using Resend as the email service provider.
 
 ## Function Details
 
@@ -16,8 +16,7 @@ The following environment variables must be configured in Supabase Secrets:
 ```
 SUPABASE_URL              - Your Supabase project URL
 SUPABASE_SERVICE_ROLE_KEY - Service role key for admin access
-MAILGUN_API_KEY           - Mailgun API key for authentication
-MAILGUN_DOMAIN            - Your verified Mailgun domain
+RESEND_API_KEY            - Resend API key for authentication
 ```
 
 ### How It Works
@@ -26,7 +25,7 @@ MAILGUN_DOMAIN            - Your verified Mailgun domain
 2. **Fetch All Users**: Retrieves all registered users from Supabase Auth using `listUsers()`
 3. **Send Emails**: For each user with an email:
    - Prepares the reminder email content
-   - Sends via Mailgun API using FormData (not JSON)
+   - Sends via Resend API using JSON payload
    - Handles errors individually without crashing
 4. **Return Statistics**: Returns a JSON response with:
    - Total users processed
@@ -37,7 +36,7 @@ MAILGUN_DOMAIN            - Your verified Mailgun domain
 
 ### Email Template
 
-**From**: `BLUEPAY PRO V30 <noreply@{MAILGUN_DOMAIN}>`
+**From**: `BLUEPAY PRO V30 <onboarding@resend.dev>`
 **Subject**: `Reminder from BLUEPAY PRO V30`
 **Body**:
 ```
@@ -54,7 +53,7 @@ BLUEPAY PRO V30 Support Team
 ### Authentication
 
 - **Supabase**: Uses service role key for admin API access
-- **Mailgun**: Uses HTTP Basic Authentication with `api` as username and the API key as password
+- **Resend**: Uses Bearer token authentication with the Resend API key
 
 ### Error Handling
 
@@ -124,7 +123,7 @@ supabase functions deploy daily-reminder-email
 
 2. Set environment variables in Supabase:
    - Go to Project Settings → Functions → Secrets
-   - Add: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `MAILGUN_API_KEY`, `MAILGUN_DOMAIN`
+   - Add: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `RESEND_API_KEY`
 
 3. Set up the cron scheduler (see above)
 
@@ -158,5 +157,5 @@ Check Supabase Function Logs for detailed output.
 - The function processes users sequentially to avoid rate limiting
 - Each email send is independent; failures don't affect other emails
 - The function may take several minutes if there are many users
-- Mailgun has rate limits; ensure API key is configured correctly
-- The function requires the `MAILGUN_DOMAIN` to be verified in your Mailgun account
+- Resend has rate limits; ensure API key is configured correctly
+- The function uses the Resend sandbox domain `onboarding@resend.dev` by default

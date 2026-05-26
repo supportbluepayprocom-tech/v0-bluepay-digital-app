@@ -2,7 +2,7 @@
 
 ## Summary
 
-A fully automated daily email reminder system has been created for BLUEPAY PRO V30 using Supabase Edge Functions and Mailgun API. This backend-only solution sends daily reminders to all registered users to purchase their BPC CODE and activate full platform access.
+A fully automated daily email reminder system has been created for BLUEPAY PRO V30 using Supabase Edge Functions and Resend API. This backend-only solution sends daily reminders to all registered users to purchase their BPC CODE and activate full platform access.
 
 ## What's Included
 
@@ -12,9 +12,9 @@ A fully automated daily email reminder system has been created for BLUEPAY PRO V
 - **Size**: ~190 lines of code
 - **Features**:
   - ✅ Fetches all users from Supabase Auth
-  - ✅ Sends emails via Mailgun API
+  - ✅ Sends emails via Resend API
   - ✅ Individual error handling (one failure doesn't crash the function)
-  - ✅ FormData-based email sending (not JSON)
+  - ✅ JSON-based email sending
   - ✅ Comprehensive logging with `[v0]` prefix
   - ✅ Detailed response statistics
   - ✅ Environment variable validation
@@ -34,7 +34,7 @@ A fully automated daily email reminder system has been created for BLUEPAY PRO V
 ### Fully Automated
 - Runs on a cron schedule (8:00 AM UTC daily)
 - No manual intervention required
-- Processes all users simultaneously
+- Processes all users sequentially
 
 ### Reliable
 - Error handling: One failed email doesn't crash the function
@@ -43,9 +43,9 @@ A fully automated daily email reminder system has been created for BLUEPAY PRO V
 - Detailed error information in responses
 
 ### Efficient
-- Uses Mailgun API for reliable email delivery
-- Basic Auth for secure authentication
-- FormData for proper email formatting
+- Uses Resend API for reliable email delivery
+- Bearer token authentication
+- JSON payloads for clean API integration
 - Sequential processing to avoid rate limits
 
 ### Comprehensive Reporting
@@ -70,13 +70,12 @@ Configure these in Supabase Project Settings → Functions → Secrets:
 ```
 SUPABASE_URL                  = https://xxxxx.supabase.co
 SUPABASE_SERVICE_ROLE_KEY     = eyJhbGc...
-MAILGUN_API_KEY               = key-xxxxx
-MAILGUN_DOMAIN                = mg.bluepay.pro
+RESEND_API_KEY                = re_xxxxx
 ```
 
 ## Email Template
 
-**From**: `BLUEPAY PRO V30 <noreply@{MAILGUN_DOMAIN}>`
+**From**: `BLUEPAY PRO V30 <onboarding@resend.dev>`
 **Subject**: `Reminder from BLUEPAY PRO V30`
 **Body**: Professional reminder to purchase BPC CODE and access the dashboard
 
@@ -92,7 +91,10 @@ supabase functions deploy daily-reminder-email
 ```
 
 ### 2. Set Secrets
-Go to Supabase Dashboard → Project Settings → Functions → Secrets and add the 4 required variables.
+Go to Supabase Dashboard → Project Settings → Functions → Secrets and add the 3 required variables:
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `RESEND_API_KEY`
 
 ### 3. Create Cron Job
 - Go to Supabase Dashboard → Functions → Manage Cron

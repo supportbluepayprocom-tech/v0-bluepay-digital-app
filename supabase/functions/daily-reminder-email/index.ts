@@ -22,11 +22,10 @@ serve(async (req: Request): Promise<Response> => {
     // Get environment variables
     const supabaseUrl = Deno.env.get('SUPABASE_URL')
     const supabaseServiceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
-    const mailgunApiKey = Deno.env.get('MAILGUN_API_KEY')
-    const mailgunDomain = Deno.env.get('MAILGUN_DOMAIN')
+    const resendApiKey = Deno.env.get('RESEND_API_KEY')
 
     // Validate environment variables
-    if (!supabaseUrl || !supabaseServiceRoleKey || !mailgunApiKey || !mailgunDomain) {
+    if (!supabaseUrl || !supabaseServiceRoleKey || !resendApiKey) {
       console.error('[v0] Missing required environment variables')
       return new Response(
         JSON.stringify({
@@ -95,7 +94,7 @@ serve(async (req: Request): Promise<Response> => {
           console.log(`[v0] Sending reminder email to: ${user.email}`)
 
           // Prepare email content
-          const emailFrom = `BLUEPAY PRO V30 <noreply@${mailgunDomain}>`
+          const emailFrom = 'BLUEPAY PRO V30 <onboarding@resend.dev>'
           const emailTo = user.email
           const subject = 'Reminder from BLUEPAY PRO V30'
           const text = `Hello from BLUEPAY PRO V30.
@@ -107,28 +106,27 @@ Login to your dashboard to continue.
 Best regards,
 BLUEPAY PRO V30 Support Team`
 
-          // Create FormData for Mailgun API
-          const formData = new FormData()
-          formData.append('from', emailFrom)
-          formData.append('to', emailTo)
-          formData.append('subject', subject)
-          formData.append('text', text)
+          // Send email via Resend API
+          const resendUrl = 'https://api.resend.com/emails'
+          const authHeader = `Bearer ${resendApiKey}`
 
-          // Send email via Mailgun API
-          const mailgunUrl = `https://api.mailgun.net/v3/${mailgunDomain}/messages`
-          const authHeader = `Basic ${btoa(`api:${mailgunApiKey}`)}`
-
-          const response = await fetch(mailgunUrl, {
+          const response = await fetch(resendUrl, {
             method: 'POST',
             headers: {
               'Authorization': authHeader,
+              'Content-Type': 'application/json',
             },
-            body: formData,
+            body: JSON.stringify({
+              from: emailFrom,
+              to: emailTo,
+              subject: subject,
+              text: text,
+            }),
           })
 
           if (!response.ok) {
             const errorText = await response.text()
-            console.error(`[v0] Mailgun error for ${user.email}:`, errorText)
+            console.error(`[v0] Resend error for ${user.email}:`, errorText)
             emailsFailed++
             results.push({
               email: user.email,
@@ -136,8 +134,8 @@ BLUEPAY PRO V30 Support Team`
               error: `HTTP ${response.status}: ${errorText}`,
             })
           } else {
-            const mailgunResponse = await response.json()
-            console.log(`[v0] Email sent successfully to ${user.email}:`, mailgunResponse)
+            const resendResponse = await response.json()
+            console.log(`[v0] Email sent successfully to ${user.email}:`, resendResponse)
             emailsSent++
             results.push({
               email: user.email,
