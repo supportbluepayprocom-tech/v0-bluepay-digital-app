@@ -122,6 +122,8 @@ export default function VerifyEmailPage() {
   }
 
   const handleResendOtp = async () => {
+    if (isLoading) return
+    
     setCanResend(false)
     setTimeLeft(300)
     setError('')
@@ -135,7 +137,15 @@ export default function VerifyEmailPage() {
       })
 
       if (!response.ok) {
-        setError('Failed to resend OTP')
+        const data = await response.json()
+        setError(data.error || 'Failed to resend OTP')
+        
+        // If rate limited, keep cooldown active
+        if (response.status === 429) {
+          setCanResend(false)
+        } else {
+          setCanResend(true)
+        }
         return
       }
 
@@ -144,6 +154,7 @@ export default function VerifyEmailPage() {
     } catch (err) {
       console.error('[v0] Resend error:', err)
       setError('Failed to resend OTP')
+      setCanResend(true)
     }
   }
 

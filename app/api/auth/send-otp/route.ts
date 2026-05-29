@@ -28,7 +28,16 @@ export async function POST(request: NextRequest) {
     })
 
     if (error) {
-      console.error('[v0] Supabase signInWithOtp error:', error)
+      console.error('[v0] Supabase signInWithOtp error:', error.message)
+      
+      // Handle rate limiting specifically
+      if (error.message?.includes('rate') || error.message?.includes('429')) {
+        return NextResponse.json(
+          { error: 'Too many requests. Please wait before requesting another code.' },
+          { status: 429 }
+        )
+      }
+      
       return NextResponse.json(
         { error: error.message || 'Failed to send verification code' },
         { status: 400 }
