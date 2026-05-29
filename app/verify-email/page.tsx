@@ -51,7 +51,13 @@ export default function VerifyEmailPage() {
 
       if (!response.ok) {
         console.error('[v0] verify-email: OTP send failed:', data.error)
-        setOtpError(data.error || 'Failed to send verification code. Please try resending.')
+        
+        // If rate limited, suggest waiting or using a different email
+        if (response.status === 429 || data.error?.includes('rate limit')) {
+          setOtpError('Too many requests for this email. Please wait 2-3 minutes before trying again, or go back and use a different email address.')
+        } else {
+          setOtpError(data.error || 'Failed to send verification code. Please try resending.')
+        }
         setIsOtpSent(false)
         return
       }
@@ -296,6 +302,16 @@ export default function VerifyEmailPage() {
           <p className="text-white text-center text-xs sm:text-sm opacity-70">
             Resend available in {formatTime(timeLeft)}
           </p>
+        )}
+
+        {/* Back to Signup Button - for rate limit scenarios */}
+        {otpError && otpError.includes('Too many requests') && (
+          <button
+            onClick={() => router.push('/signup')}
+            className="w-full px-4 sm:px-6 py-2.5 sm:py-3 bg-red-600/40 border border-red-400 text-white font-semibold text-sm sm:text-base rounded-lg sm:rounded-2xl hover:bg-red-600/60 transition-all mt-3"
+          >
+            Try Different Email
+          </button>
         )}
       </div>
 
