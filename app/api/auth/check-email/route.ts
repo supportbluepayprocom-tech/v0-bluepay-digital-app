@@ -25,46 +25,24 @@ export async function POST(request: NextRequest) {
     // Create server-side Supabase client
     const supabase = await createClient()
 
-    // Check if this email already exists in auth.users
-    const { data, error } = await supabase.auth.admin.listUsers()
+    // Check if email exists in public.users table (user profile data)
+    // This is more reliable than checking auth.users
+    const { data: profileData, error: profileError } = await supabase
+      .from('users')
+      .select('id, email')
+      .eq('email', email.toLowerCase())
+      .maybeSingle()
 
-    if (error) {
-      console.error('[v0] check-email: Error fetching users:', error.message)
+    // Handle query errors (but not "no rows" errors which return null)
+    if (profileError && profileError.code !== 'PGRST116') {
+      console.error('[v0] check-email: Error querying users profile:', profileError.message)
       return NextResponse.json(
         { error: 'Unable to verify email. Please try again.' },
         { status: 500 }
       )
     }
 
-    // Check if email exists in auth.users
-    const userExists = data?.users?.some(
-      (user) => user.email?.toLowerCase() === email.toLowerCase()
-    )
-
-    if (userExists) {
-      console.log('[v0] check-email: Email already exists:', email)
-      return NextResponse.json(
-        { 
-          exists: true,
-          message: 'An account with this email already exists. Please login.',
-          type: 'existing_account'
-        },
-        { status: 200 }
-      )
-    }
-
-    // Check if email exists in public.users table (user profile data)
-    const { data: profileData, error: profileError } = await supabase
-      .from('users')
-      .select('id, email')
-      .eq('email', email.toLowerCase())
-      .single()
-
-    if (profileError && profileError.code !== 'PGRST116') {
-      console.error('[v0] check-email: Error querying users profile:', profileError.message)
-      // Continue anyway - this is not a blocking error
-    }
-
+    // If profile data exists, email is taken
     if (profileData) {
       console.log('[v0] check-email: Email exists in profiles:', email)
       return NextResponse.json(
