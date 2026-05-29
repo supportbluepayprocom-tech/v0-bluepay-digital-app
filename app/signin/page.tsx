@@ -6,8 +6,6 @@ import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import { validateEmail } from '@/lib/utils'
 
-const OTP_COOLDOWN_SECONDS = 60
-
 export default function SigninPage() {
   const router = useRouter()
   const [email, setEmail] = useState('')
@@ -15,7 +13,6 @@ export default function SigninPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [generalError, setGeneralError] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
-  const [cooldownSeconds, setCooldownSeconds] = useState(0)
   
   // Prevent duplicate submissions
   const submitInProgressRef = useRef(false)
@@ -33,24 +30,11 @@ export default function SigninPage() {
     return Object.keys(newErrors).length === 0
   }
 
-  const startCooldown = () => {
-    setCooldownSeconds(OTP_COOLDOWN_SECONDS)
-    const interval = setInterval(() => {
-      setCooldownSeconds((prev) => {
-        if (prev <= 1) {
-          clearInterval(interval)
-          return 0
-        }
-        return prev - 1
-      })
-    }, 1000)
-  }
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
     // Prevent duplicate submissions
-    if (submitInProgressRef.current || isLoading || cooldownSeconds > 0) {
+    if (submitInProgressRef.current || isLoading) {
       return
     }
 
@@ -65,9 +49,9 @@ export default function SigninPage() {
     setIsLoading(true)
 
     try {
-      console.log('[v0] signin: Step 1 - Verifying if account exists:', email)
+      console.log('[v0] signin: Verifying account exists for email:', email)
       
-      // STEP 1: Check if account exists
+      // Check if account exists
       const accountCheckResponse = await fetch('/api/auth/verify-account', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -85,7 +69,7 @@ export default function SigninPage() {
 
       // If account doesn't exist, redirect to signup
       if (!accountCheckData.exists) {
-        console.log('[v0] signin: Account does not exist - showing signup prompt')
+        console.log('[v0] signin: Account does not exist - redirecting to signup')
         setGeneralError('No account found with this email. Please create an account first.')
         setSuccessMessage('')
         setTimeout(() => {
@@ -95,40 +79,18 @@ export default function SigninPage() {
         return
       }
 
-      console.log('[v0] signin: Account verified - sending OTP')
+      console.log('[v0] signin: Account verified successfully - redirecting to dashboard')
       
-      // STEP 2: Send OTP for signin
-      const otpResponse = await fetch('/api/auth/send-otp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
-      })
-
-      const otpData = await otpResponse.json()
-
-      if (!otpResponse.ok) {
-        const errorMessage = otpData.error || 'Failed to send verification code'
-        console.error('[v0] signin: OTP sending failed:', errorMessage)
-        setGeneralError(errorMessage)
-        
-        // Do NOT apply cooldown if OTP failed - only after successful delivery
-        submitInProgressRef.current = false
-        return
-      }
-
-      console.log('[v0] signin: OTP sent successfully - starting cooldown')
+      // Account exists - redirect to dashboard immediately
+      setSuccessMessage('Account verified! Redirecting to dashboard...')
       
-      // Store email for verification
-      sessionStorage.setItem('signinEmail', email)
-      setSuccessMessage('Verification code sent to your email!')
+      // Clear session storage and redirect
+      sessionStorage.removeItem('signinEmail')
+      sessionStorage.removeItem('signupEmail')
       
-      // Only start cooldown AFTER successful OTP delivery
-      startCooldown()
-      
-      // Redirect to verification
       setTimeout(() => {
-        router.push('/verify-email')
-      }, 1500)
+        router.push('/dashboard')
+      }, 1000)
     } catch (error) {
       console.error('[v0] signin: Unexpected error:', error)
       setGeneralError('Network error. Please try again.')
@@ -182,7 +144,7 @@ export default function SigninPage() {
                   setEmail(e.target.value)
                   if (errors.email) setErrors({ ...errors, email: '' })
                 }}
-                disabled={isLoading || cooldownSeconds > 0}
+                disabled={isLoading}
                 className="w-full px-4 sm:px-6 py-3 sm:py-4 bg-blue-600/40 border border-white/30 rounded-xl sm:rounded-2xl text-white text-sm sm:text-base placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/50 focus:border-white/60 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               />
               {errors.email && (
@@ -204,20 +166,15 @@ export default function SigninPage() {
               </div>
             )}
 
-            {/* Cooldown Message */}
-            {cooldownSeconds > 0 && !successMessage && (
-              <div className="bg-blue-500/20 border border-blue-500/50 rounded-lg p-3 text-blue-200 text-xs sm:text-sm text-center">
-                Please wait {cooldownSeconds}s before requesting another code
-              </div>
-            )}
+            {/* Cooldown Message - Removed as we don't need cooldown anymore */}
 
             {/* Continue Button */}
             <button
               type="submit"
-              disabled={isLoading || cooldownSeconds > 0}
+              disabled={isLoading}
               className="w-full px-4 sm:px-6 py-3 sm:py-4 bg-white text-[#0000ff] font-bold text-sm sm:text-lg rounded-xl sm:rounded-2xl shadow-2xl hover:shadow-xl hover:scale-105 disabled:opacity-70 disabled:cursor-not-allowed disabled:hover:scale-100 transition-all duration-300 active:scale-95"
             >
-              {isLoading ? 'Sending Code...' : cooldownSeconds > 0 ? `Wait ${cooldownSeconds}s` : 'Continue'}
+              {isLoading ? 'Verifying Account...' : 'Continue'}
             </button>
           </form>
 
@@ -236,7 +193,7 @@ export default function SigninPage() {
         {/* Back Button */}
         <button
           onClick={handleBack}
-          disabled={isLoading || cooldownSeconds > 0}
+          disabled={isLoading}
           className="w-full px-4 sm:px-6 py-3 sm:py-4 bg-white text-[#0000ff] font-bold text-sm sm:text-lg rounded-xl sm:rounded-2xl shadow-lg hover:shadow-xl hover:scale-105 disabled:opacity-70 disabled:cursor-not-allowed transition-all duration-300 active:scale-95 flex items-center justify-center gap-2"
         >
           <ArrowLeft size={18} />
