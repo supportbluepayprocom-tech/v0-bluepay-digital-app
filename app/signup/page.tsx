@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { validateEmail } from '@/lib/utils'
@@ -12,7 +12,9 @@ export default function SignupPage() {
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [isLoading, setIsLoading] = useState(false)
   const [generalError, setGeneralError] = useState('')
-  const [successMessage, setSuccessMessage] = useState('')
+  
+  // Prevent duplicate submissions
+  const submitInProgressRef = useRef(false)
 
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {}
@@ -33,61 +35,38 @@ export default function SignupPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    
+    // Prevent duplicate submissions
+    if (submitInProgressRef.current || isLoading) {
+      return
+    }
+
     setGeneralError('')
-    setSuccessMessage('')
 
     if (!validateForm()) {
       return
     }
 
+    submitInProgressRef.current = true
     setIsLoading(true)
 
     try {
-      // First create the user account
-      const signupResponse = await fetch('/api/auth/signup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email,
-          fullName,
-        }),
-      })
-
-      const signupData = await signupResponse.json()
-
-      if (!signupResponse.ok) {
-        setGeneralError(signupData.error || 'Account creation failed')
-        setIsLoading(false)
-        return
-      }
-
-      // Store info for creating account animation
+      console.log('[v0] signup: Storing user info and redirecting to verify-email')
+      
+      // Just store info and redirect to verify-email page
+      // Verify-email page will handle sending OTP (to avoid duplicate requests)
       sessionStorage.setItem('signupEmail', email)
       sessionStorage.setItem('signupFullName', fullName)
-
-      // Send OTP to email
-      const otpResponse = await fetch('/api/auth/send-otp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
-      })
-
-      const otpData = await otpResponse.json()
-
-      if (!otpResponse.ok) {
-        setGeneralError(otpData.error || 'Failed to send verification code')
-        setIsLoading(false)
-        return
-      }
-
-      // Redirect to creating account animation page
+      
+      // Redirect to OTP verification page
       setTimeout(() => {
-        router.push('/creating-account')
-      }, 500)
+        router.push('/verify-email')
+      }, 300)
     } catch (error) {
-      console.error('[v0] Signup error:', error)
+      console.error('[v0] signup: Unexpected error:', error)
       const errorMessage = error instanceof Error ? error.message : 'Network error. Please try again.'
       setGeneralError(errorMessage)
+      submitInProgressRef.current = false
     } finally {
       setIsLoading(false)
     }
@@ -119,7 +98,8 @@ export default function SignupPage() {
                   setFullName(e.target.value)
                   if (errors.fullName) setErrors({ ...errors, fullName: '' })
                 }}
-                className="w-full px-4 sm:px-6 py-3 sm:py-4 bg-blue-600/40 border border-white/30 rounded-xl sm:rounded-2xl text-white text-sm sm:text-base placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/50 focus:border-white/60 transition-all"
+                disabled={isLoading}
+                className="w-full px-4 sm:px-6 py-3 sm:py-4 bg-blue-600/40 border border-white/30 rounded-xl sm:rounded-2xl text-white text-sm sm:text-base placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/50 focus:border-white/60 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               />
               {errors.fullName && (
                 <p className="text-red-200 text-xs sm:text-sm mt-1">{errors.fullName}</p>
@@ -136,7 +116,8 @@ export default function SignupPage() {
                   setEmail(e.target.value)
                   if (errors.email) setErrors({ ...errors, email: '' })
                 }}
-                className="w-full px-4 sm:px-6 py-3 sm:py-4 bg-blue-600/40 border border-white/30 rounded-xl sm:rounded-2xl text-white text-sm sm:text-base placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/50 focus:border-white/60 transition-all"
+                disabled={isLoading}
+                className="w-full px-4 sm:px-6 py-3 sm:py-4 bg-blue-600/40 border border-white/30 rounded-xl sm:rounded-2xl text-white text-sm sm:text-base placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/50 focus:border-white/60 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               />
               {errors.email && (
                 <p className="text-red-200 text-xs sm:text-sm mt-1">{errors.email}</p>
@@ -150,20 +131,15 @@ export default function SignupPage() {
               </div>
             )}
 
-            {/* Success Message */}
-            {successMessage && (
-              <div className="bg-green-500/20 border border-green-500/50 rounded-lg p-3 text-green-200 text-xs sm:text-sm">
-                {successMessage}
-              </div>
-            )}
+            {/* Cooldown Message - Removed as we no longer have cooldown on signup */}
 
             {/* Create Account Button */}
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full px-4 sm:px-6 py-3 sm:py-4 bg-white text-[#0000ff] font-bold text-sm sm:text-lg rounded-xl sm:rounded-2xl shadow-2xl hover:shadow-xl hover:scale-105 disabled:opacity-70 disabled:cursor-not-allowed transition-all duration-300 active:scale-95"
+              className="w-full px-4 sm:px-6 py-3 sm:py-4 bg-white text-[#0000ff] font-bold text-sm sm:text-lg rounded-xl sm:rounded-2xl shadow-2xl hover:shadow-xl hover:scale-105 disabled:opacity-70 disabled:cursor-not-allowed disabled:hover:scale-100 transition-all duration-300 active:scale-95"
             >
-              {isLoading ? 'Creating Account...' : 'CREATE ACCOUNT'}
+              {isLoading ? 'Continuing...' : 'CREATE ACCOUNT'}
             </button>
           </form>
 

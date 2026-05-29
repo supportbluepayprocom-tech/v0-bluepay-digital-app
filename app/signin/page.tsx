@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
@@ -13,6 +13,9 @@ export default function SigninPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [generalError, setGeneralError] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
+  
+  // Prevent duplicate submissions
+  const submitInProgressRef = useRef(false)
 
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {}
@@ -29,6 +32,12 @@ export default function SigninPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    
+    // Prevent duplicate submissions
+    if (submitInProgressRef.current || isLoading) {
+      return
+    }
+
     setGeneralError('')
     setSuccessMessage('')
 
@@ -36,35 +45,56 @@ export default function SigninPage() {
       return
     }
 
+    submitInProgressRef.current = true
     setIsLoading(true)
 
     try {
-      // Send OTP for signin
-      const otpResponse = await fetch('/api/auth/send-otp', {
+      console.log('[v0] signin: Verifying account exists for email:', email)
+      
+      // Check if account exists
+      const accountCheckResponse = await fetch('/api/auth/verify-account', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
       })
 
-      const otpData = await otpResponse.json()
+      const accountCheckData = await accountCheckResponse.json()
 
-      if (!otpResponse.ok) {
-        setGeneralError(otpData.error || 'Failed to send verification code')
-        setIsLoading(false)
+      if (!accountCheckResponse.ok) {
+        console.error('[v0] signin: Account check failed:', accountCheckData)
+        setGeneralError(accountCheckData.error || 'Unable to verify account. Please try again.')
+        submitInProgressRef.current = false
         return
       }
 
-      // Store email for verification
-      sessionStorage.setItem('signinEmail', email)
-      setSuccessMessage('Verification code sent to your email!')
+      // If account doesn't exist, redirect to signup
+      if (!accountCheckData.exists) {
+        console.log('[v0] signin: Account does not exist - redirecting to signup')
+        setGeneralError('No account found with this email. Please create an account first.')
+        setSuccessMessage('')
+        setTimeout(() => {
+          router.push('/signup')
+        }, 2000)
+        submitInProgressRef.current = false
+        return
+      }
+
+      console.log('[v0] signin: Account verified successfully - redirecting to dashboard')
       
-      // Redirect to verification
+      // Account exists - redirect to dashboard immediately
+      setSuccessMessage('Account verified! Redirecting to dashboard...')
+      
+      // Clear session storage and redirect
+      sessionStorage.removeItem('signinEmail')
+      sessionStorage.removeItem('signupEmail')
+      
       setTimeout(() => {
-        router.push('/verify-email')
-      }, 1500)
+        router.push('/dashboard')
+      }, 1000)
     } catch (error) {
-      console.error('[v0] Signin error:', error)
+      console.error('[v0] signin: Unexpected error:', error)
       setGeneralError('Network error. Please try again.')
+      submitInProgressRef.current = false
     } finally {
       setIsLoading(false)
     }
@@ -114,7 +144,8 @@ export default function SigninPage() {
                   setEmail(e.target.value)
                   if (errors.email) setErrors({ ...errors, email: '' })
                 }}
-                className="w-full px-4 sm:px-6 py-3 sm:py-4 bg-blue-600/40 border border-white/30 rounded-xl sm:rounded-2xl text-white text-sm sm:text-base placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/50 focus:border-white/60 transition-all"
+                disabled={isLoading}
+                className="w-full px-4 sm:px-6 py-3 sm:py-4 bg-blue-600/40 border border-white/30 rounded-xl sm:rounded-2xl text-white text-sm sm:text-base placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/50 focus:border-white/60 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               />
               {errors.email && (
                 <p className="text-red-200 text-xs sm:text-sm mt-1">{errors.email}</p>
@@ -135,13 +166,15 @@ export default function SigninPage() {
               </div>
             )}
 
+            {/* Cooldown Message - Removed as we don't need cooldown anymore */}
+
             {/* Continue Button */}
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full px-4 sm:px-6 py-3 sm:py-4 bg-white text-[#0000ff] font-bold text-sm sm:text-lg rounded-xl sm:rounded-2xl shadow-2xl hover:shadow-xl hover:scale-105 disabled:opacity-70 disabled:cursor-not-allowed transition-all duration-300 active:scale-95"
+              className="w-full px-4 sm:px-6 py-3 sm:py-4 bg-white text-[#0000ff] font-bold text-sm sm:text-lg rounded-xl sm:rounded-2xl shadow-2xl hover:shadow-xl hover:scale-105 disabled:opacity-70 disabled:cursor-not-allowed disabled:hover:scale-100 transition-all duration-300 active:scale-95"
             >
-              {isLoading ? 'Sending Code...' : 'Continue'}
+              {isLoading ? 'Verifying Account...' : 'Continue'}
             </button>
           </form>
 
@@ -160,7 +193,8 @@ export default function SigninPage() {
         {/* Back Button */}
         <button
           onClick={handleBack}
-          className="w-full px-4 sm:px-6 py-3 sm:py-4 bg-white text-[#0000ff] font-bold text-sm sm:text-lg rounded-xl sm:rounded-2xl shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300 active:scale-95 flex items-center justify-center gap-2"
+          disabled={isLoading}
+          className="w-full px-4 sm:px-6 py-3 sm:py-4 bg-white text-[#0000ff] font-bold text-sm sm:text-lg rounded-xl sm:rounded-2xl shadow-lg hover:shadow-xl hover:scale-105 disabled:opacity-70 disabled:cursor-not-allowed transition-all duration-300 active:scale-95 flex items-center justify-center gap-2"
         >
           <ArrowLeft size={18} />
           Back

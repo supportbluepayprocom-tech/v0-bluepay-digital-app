@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { AlertCircle, CheckCircle } from 'lucide-react'
-import BPCNotificationModal from '@/components/BPCNotificationModal'
 
 export default function VerifyEmailPage() {
   const router = useRouter()
@@ -15,19 +14,67 @@ export default function VerifyEmailPage() {
   const [canResend, setCanResend] = useState(false)
   const [email, setEmail] = useState('')
   const [fullName, setFullName] = useState('')
-  const [showBpcModal, setShowBpcModal] = useState(false)
+  const [isOtpSent, setIsOtpSent] = useState(false)
+  const [otpError, setOtpError] = useState('')
   const inputRefs = useRef<(HTMLInputElement | null)[]>([])
+  const otpSentRef = useRef(false)
 
   useEffect(() => {
+    console.log('[v0] verify-email: Page mounted, checking for signup email in sessionStorage')
     const storedEmail = sessionStorage.getItem('signupEmail')
-    const storedName = sessionStorage.getItem('fullName')
+    const storedName = sessionStorage.getItem('signupFullName')
+    
+    console.log('[v0] verify-email: storedEmail:', storedEmail, 'storedName:', storedName)
+    
     if (!storedEmail) {
+      console.log('[v0] verify-email: No email in sessionStorage, redirecting to signup')
       router.push('/signup')
       return
     }
+    
     setEmail(storedEmail)
     setFullName(storedName || 'User')
+
+    // Auto-send OTP when user arrives from signup
+    if (!otpSentRef.current) {
+      console.log('[v0] verify-email: Triggering OTP send for:', storedEmail)
+      otpSentRef.current = true
+      sendOtpToEmail(storedEmail)
+    } else {
+      console.log('[v0] verify-email: OTP already sent, skipping')
+    }
   }, [router])
+
+  const sendOtpToEmail = async (emailAddress: string) => {
+    try {
+      console.log('[v0] verify-email: Auto-sending OTP to:', emailAddress)
+      setOtpError('')
+      
+      const response = await fetch('/api/auth/send-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: emailAddress }),
+      })
+
+      const data = await response.json()
+      console.log('[v0] verify-email: OTP response status:', response.status, 'data:', data)
+
+      if (!response.ok) {
+        console.error('[v0] verify-email: OTP send failed:', data.error, 'Status:', response.status)
+        setOtpError(data.error || 'Failed to send verification code. Please try resending.')
+        setIsOtpSent(false)
+        return
+      }
+
+      console.log('[v0] verify-email: OTP sent successfully')
+      setIsOtpSent(true)
+      setOtpError('')
+    } catch (err) {
+      console.error('[v0] verify-email: OTP send error:', err)
+      setOtpError('Network error. Please try resending.')
+      setIsOtpSent(false)
+    }
+  }
 
   // Countdown timer
   useEffect(() => {
@@ -92,6 +139,8 @@ export default function VerifyEmailPage() {
     setError('')
 
     try {
+      console.log('[v0] verify-email: Verifying OTP for:', email)
+      
       const response = await fetch('/api/auth/verify-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -104,17 +153,24 @@ export default function VerifyEmailPage() {
       const data = await response.json()
 
       if (!response.ok) {
-        setError(data.error || 'Verification failed')
+        console.error('[v0] verify-email: OTP verification failed:', data.error)
+        setError(data.error || 'Verification failed. Please check your code and try again.')
         return
       }
 
+      console.log('[v0] verify-email: OTP verified successfully')
       setSuccess(true)
-      // Show BPC modal immediately after successful verification
+      
+      // Clear session storage after successful verification
+      sessionStorage.removeItem('signinEmail')
+      sessionStorage.removeItem('signupEmail')
+      
+      // Redirect to dashboard after short delay
       setTimeout(() => {
-        setShowBpcModal(true)
-      }, 500)
+        router.push('/dashboard')
+      }, 1000)
     } catch (err) {
-      console.error('[v0] Verification error:', err)
+      console.error('[v0] verify-email: Verification error:', err)
       setError('An error occurred. Please try again.')
     } finally {
       setIsLoading(false)
@@ -122,29 +178,12 @@ export default function VerifyEmailPage() {
   }
 
   const handleResendOtp = async () => {
+    if (isLoading) return
+    sendOtpToEmail(email)
     setCanResend(false)
     setTimeLeft(300)
     setError('')
     setOtp(['', '', '', '', '', ''])
-
-    try {
-      const response = await fetch('/api/auth/send-otp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
-      })
-
-      if (!response.ok) {
-        setError('Failed to resend OTP')
-        return
-      }
-
-      setSuccess(true)
-      setTimeout(() => setSuccess(false), 3000)
-    } catch (err) {
-      console.error('[v0] Resend error:', err)
-      setError('Failed to resend OTP')
-    }
   }
 
   return (
@@ -212,6 +251,20 @@ export default function VerifyEmailPage() {
           </div>
         </div>
 
+        {/* OTP Send Status - Only show if there was an error OR if successfully sent */}
+        {otpError && !otpError.includes('Too many requests') && (
+          <div className="mb-4 bg-red-500 bg-opacity-20 border border-red-400 rounded-lg p-3 flex items-start gap-2">
+            <AlertCircle className="w-4 sm:w-5 h-4 sm:h-5 text-red-300 flex-shrink-0 mt-0.5" />
+            <p className="text-red-200 text-xs sm:text-sm">{otpError}</p>
+          </div>
+        )}
+
+        {isOtpSent && !otpError && (
+          <div className="mb-4 bg-green-500 bg-opacity-20 border border-green-400 rounded-lg p-3 text-center">
+            <p className="text-green-200 text-xs sm:text-sm">Verification code sent! Check your email.</p>
+          </div>
+        )}
+
         {/* Error Message */}
         {error && (
           <div className="mb-4 bg-red-500 bg-opacity-20 border border-red-400 rounded-lg p-3 flex items-start gap-2">
@@ -250,15 +303,8 @@ export default function VerifyEmailPage() {
         )}
       </div>
 
-      {/* BPC Notification Modal */}
-      <BPCNotificationModal
-        isOpen={showBpcModal}
-        onClose={() => {
-          setShowBpcModal(false)
-          router.push('/dashboard')
-        }}
-        userName={fullName}
-      />
+      {/* BPC Notification Modal - Removed, now redirects to dashboard directly */}
+      {/* Previous modal code removed to fix redirect flow */}
     </div>
   )
 }
