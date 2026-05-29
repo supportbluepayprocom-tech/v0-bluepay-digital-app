@@ -65,6 +65,8 @@ export default function SigninPage() {
     setIsLoading(true)
 
     try {
+      console.log('[v0] signin: Sending OTP to:', email)
+      
       // Send OTP for signin
       const otpResponse = await fetch('/api/auth/send-otp', {
         method: 'POST',
@@ -76,20 +78,21 @@ export default function SigninPage() {
 
       if (!otpResponse.ok) {
         const errorMessage = otpData.error || 'Failed to send verification code'
+        console.error('[v0] signin: OTP sending failed:', errorMessage)
         setGeneralError(errorMessage)
         
-        // Apply cooldown on rate limit error
-        if (otpResponse.status === 429) {
-          startCooldown()
-        }
-        
+        // Do NOT apply cooldown if OTP failed - only after successful delivery
         submitInProgressRef.current = false
         return
       }
 
+      console.log('[v0] signin: OTP sent successfully - starting cooldown')
+      
       // Store email for verification
       sessionStorage.setItem('signinEmail', email)
       setSuccessMessage('Verification code sent to your email!')
+      
+      // Only start cooldown AFTER successful OTP delivery
       startCooldown()
       
       // Redirect to verification
@@ -97,7 +100,7 @@ export default function SigninPage() {
         router.push('/verify-email')
       }, 1500)
     } catch (error) {
-      console.error('[v0] Signin error:', error)
+      console.error('[v0] signin: Unexpected error:', error)
       setGeneralError('Network error. Please try again.')
       submitInProgressRef.current = false
     } finally {
