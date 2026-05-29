@@ -5,8 +5,6 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { validateEmail } from '@/lib/utils'
 
-const OTP_COOLDOWN_SECONDS = 60
-
 export default function SignupPage() {
   const router = useRouter()
   const [fullName, setFullName] = useState('')
@@ -14,13 +12,10 @@ export default function SignupPage() {
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [isLoading, setIsLoading] = useState(false)
   const [generalError, setGeneralError] = useState('')
-  const [successMessage, setSuccessMessage] = useState('')
-  const [cooldownSeconds, setCooldownSeconds] = useState(0)
   const [isExistingAccount, setIsExistingAccount] = useState(false)
   
   // Prevent duplicate submissions
   const submitInProgressRef = useRef(false)
-  const cooldownIntervalRef = useRef<NodeJS.Timeout | null>(null)
 
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {}
@@ -39,31 +34,15 @@ export default function SignupPage() {
     return Object.keys(newErrors).length === 0
   }
 
-  const startCooldown = () => {
-    setCooldownSeconds(OTP_COOLDOWN_SECONDS)
-    if (cooldownIntervalRef.current) clearInterval(cooldownIntervalRef.current)
-    
-    cooldownIntervalRef.current = setInterval(() => {
-      setCooldownSeconds((prev) => {
-        if (prev <= 1) {
-          if (cooldownIntervalRef.current) clearInterval(cooldownIntervalRef.current)
-          return 0
-        }
-        return prev - 1
-      })
-    }, 1000)
-  }
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
     // Prevent duplicate submissions
-    if (submitInProgressRef.current || isLoading || cooldownSeconds > 0) {
+    if (submitInProgressRef.current || isLoading) {
       return
     }
 
     setGeneralError('')
-    setSuccessMessage('')
     setIsExistingAccount(false)
 
     if (!validateForm()) {
@@ -76,7 +55,7 @@ export default function SignupPage() {
     try {
       console.log('[v0] signup: Step 1 - Checking if email exists:', email)
       
-      // STEP 1: Check if email already exists BEFORE attempting anything
+      // STEP 1: Check if email already exists
       const checkEmailResponse = await fetch('/api/auth/check-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -89,79 +68,28 @@ export default function SignupPage() {
         console.error('[v0] signup: Email check failed:', checkEmailData)
         setGeneralError(checkEmailData.error || 'Unable to verify email. Please try again.')
         submitInProgressRef.current = false
-        setIsLoading(false)
         return
       }
 
-      // If email already exists, show the user a login prompt
+      // If email already exists, show login prompt
       if (checkEmailData.exists) {
-        console.log('[v0] signup: Email already exists - showing login prompt')
+        console.log('[v0] signup: Email already exists')
         setIsExistingAccount(true)
         setGeneralError(checkEmailData.message || 'An account with this email already exists. Please login.')
         submitInProgressRef.current = false
-        setIsLoading(false)
         return
       }
 
-      console.log('[v0] signup: Email is available - proceeding with account creation')
-
-      // STEP 2: Create the user account (only if email is new)
-      const signupResponse = await fetch('/api/auth/signup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email,
-          fullName,
-        }),
-      })
-
-      const signupData = await signupResponse.json()
-
-      if (!signupResponse.ok) {
-        console.error('[v0] signup: Account creation failed:', signupData)
-        setGeneralError(signupData.error || 'Account creation failed')
-        submitInProgressRef.current = false
-        setIsLoading(false)
-        return
-      }
-
-      console.log('[v0] signup: Account created successfully')
-
-      // Store info for creating account animation
+      console.log('[v0] signup: Email is available - redirecting to OTP page')
+      
+      // Email is new - store info and redirect to OTP page
       sessionStorage.setItem('signupEmail', email)
       sessionStorage.setItem('signupFullName', fullName)
-
-      // STEP 3: Send OTP to email (only after account creation succeeds)
-      console.log('[v0] signup: Sending OTP to email:', email)
-      const otpResponse = await fetch('/api/auth/send-otp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
-      })
-
-      const otpData = await otpResponse.json()
-
-      if (!otpResponse.ok) {
-        const errorMessage = otpData.error || 'Failed to send verification code'
-        console.error('[v0] signup: OTP sending failed:', errorMessage, 'Status:', otpResponse.status)
-        setGeneralError(errorMessage)
-        
-        // Do NOT apply cooldown if OTP failed - only apply after successful delivery
-        submitInProgressRef.current = false
-        setIsLoading(false)
-        return
-      }
-
-      console.log('[v0] signup: OTP sent successfully - starting cooldown')
       
-      // STEP 4: Only start cooldown AFTER OTP is successfully sent
-      setSuccessMessage('Verification code sent to your email!')
-      startCooldown()
-      
-      // Redirect to creating account animation page
+      // Redirect to OTP page where user will get OTP sent and verify
       setTimeout(() => {
-        router.push('/creating-account')
-      }, 1000)
+        router.push('/verify-email')
+      }, 500)
     } catch (error) {
       console.error('[v0] signup: Unexpected error:', error)
       const errorMessage = error instanceof Error ? error.message : 'Network error. Please try again.'
@@ -222,7 +150,7 @@ export default function SignupPage() {
                   setFullName(e.target.value)
                   if (errors.fullName) setErrors({ ...errors, fullName: '' })
                 }}
-                disabled={isLoading || cooldownSeconds > 0 || isExistingAccount}
+                disabled={isLoading || isExistingAccount}
                 className="w-full px-4 sm:px-6 py-3 sm:py-4 bg-blue-600/40 border border-white/30 rounded-xl sm:rounded-2xl text-white text-sm sm:text-base placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/50 focus:border-white/60 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               />
               {errors.fullName && (
@@ -241,7 +169,7 @@ export default function SignupPage() {
                   if (errors.email) setErrors({ ...errors, email: '' })
                   setIsExistingAccount(false)
                 }}
-                disabled={isLoading || cooldownSeconds > 0 || isExistingAccount}
+                disabled={isLoading || isExistingAccount}
                 className="w-full px-4 sm:px-6 py-3 sm:py-4 bg-blue-600/40 border border-white/30 rounded-xl sm:rounded-2xl text-white text-sm sm:text-base placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/50 focus:border-white/60 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               />
               {errors.email && (
@@ -256,27 +184,15 @@ export default function SignupPage() {
               </div>
             )}
 
-            {/* Success Message */}
-            {successMessage && (
-              <div className="bg-green-500/20 border border-green-500/50 rounded-lg p-3 text-green-200 text-xs sm:text-sm">
-                {successMessage}
-              </div>
-            )}
-
-            {/* Cooldown Message */}
-            {cooldownSeconds > 0 && !successMessage && (
-              <div className="bg-blue-500/20 border border-blue-500/50 rounded-lg p-3 text-blue-200 text-xs sm:text-sm text-center">
-                Please wait {cooldownSeconds}s before requesting another code
-              </div>
-            )}
+            {/* Cooldown Message - Removed as we no longer have cooldown on signup */}
 
             {/* Create Account Button */}
             <button
               type="submit"
-              disabled={isLoading || cooldownSeconds > 0 || isExistingAccount}
+              disabled={isLoading || isExistingAccount}
               className="w-full px-4 sm:px-6 py-3 sm:py-4 bg-white text-[#0000ff] font-bold text-sm sm:text-lg rounded-xl sm:rounded-2xl shadow-2xl hover:shadow-xl hover:scale-105 disabled:opacity-70 disabled:cursor-not-allowed disabled:hover:scale-100 transition-all duration-300 active:scale-95"
             >
-              {isLoading ? 'Creating Account...' : cooldownSeconds > 0 ? `Wait ${cooldownSeconds}s` : 'CREATE ACCOUNT'}
+              {isLoading ? 'Verifying...' : 'CREATE ACCOUNT'}
             </button>
           </form>
 

@@ -14,7 +14,10 @@ export default function VerifyEmailPage() {
   const [canResend, setCanResend] = useState(false)
   const [email, setEmail] = useState('')
   const [fullName, setFullName] = useState('')
+  const [isOtpSent, setIsOtpSent] = useState(false)
+  const [otpError, setOtpError] = useState('')
   const inputRefs = useRef<(HTMLInputElement | null)[]>([])
+  const otpSentRef = useRef(false)
 
   useEffect(() => {
     const storedEmail = sessionStorage.getItem('signupEmail')
@@ -25,7 +28,43 @@ export default function VerifyEmailPage() {
     }
     setEmail(storedEmail)
     setFullName(storedName || 'User')
+
+    // Auto-send OTP when user arrives from signup
+    if (!otpSentRef.current) {
+      otpSentRef.current = true
+      sendOtpToEmail(storedEmail)
+    }
   }, [router])
+
+  const sendOtpToEmail = async (emailAddress: string) => {
+    try {
+      console.log('[v0] verify-email: Auto-sending OTP to:', emailAddress)
+      setOtpError('')
+      
+      const response = await fetch('/api/auth/send-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: emailAddress }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        console.error('[v0] verify-email: OTP send failed:', data.error)
+        setOtpError(data.error || 'Failed to send verification code. Please try resending.')
+        setIsOtpSent(false)
+        return
+      }
+
+      console.log('[v0] verify-email: OTP sent successfully')
+      setIsOtpSent(true)
+      setOtpError('')
+    } catch (err) {
+      console.error('[v0] verify-email: OTP send error:', err)
+      setOtpError('Network error. Please try resending.')
+      setIsOtpSent(false)
+    }
+  }
 
   // Countdown timer
   useEffect(() => {
@@ -130,39 +169,11 @@ export default function VerifyEmailPage() {
 
   const handleResendOtp = async () => {
     if (isLoading) return
-    
+    sendOtpToEmail(email)
     setCanResend(false)
     setTimeLeft(300)
     setError('')
     setOtp(['', '', '', '', '', ''])
-
-    try {
-      const response = await fetch('/api/auth/send-otp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
-      })
-
-      if (!response.ok) {
-        const data = await response.json()
-        setError(data.error || 'Failed to resend OTP')
-        
-        // If rate limited, keep cooldown active
-        if (response.status === 429) {
-          setCanResend(false)
-        } else {
-          setCanResend(true)
-        }
-        return
-      }
-
-      setSuccess(true)
-      setTimeout(() => setSuccess(false), 3000)
-    } catch (err) {
-      console.error('[v0] Resend error:', err)
-      setError('Failed to resend OTP')
-      setCanResend(true)
-    }
   }
 
   return (
@@ -229,6 +240,26 @@ export default function VerifyEmailPage() {
             </p>
           </div>
         </div>
+
+        {/* OTP Send Status */}
+        {otpError && (
+          <div className="mb-4 bg-red-500 bg-opacity-20 border border-red-400 rounded-lg p-3 flex items-start gap-2">
+            <AlertCircle className="w-4 sm:w-5 h-4 sm:h-5 text-red-300 flex-shrink-0 mt-0.5" />
+            <p className="text-red-200 text-xs sm:text-sm">{otpError}</p>
+          </div>
+        )}
+
+        {!isOtpSent && !otpError && (
+          <div className="mb-4 bg-blue-500 bg-opacity-20 border border-blue-400 rounded-lg p-3 text-center">
+            <p className="text-blue-200 text-xs sm:text-sm">Sending verification code...</p>
+          </div>
+        )}
+
+        {isOtpSent && !otpError && (
+          <div className="mb-4 bg-green-500 bg-opacity-20 border border-green-400 rounded-lg p-3 text-center">
+            <p className="text-green-200 text-xs sm:text-sm">Verification code sent! Check your email.</p>
+          </div>
+        )}
 
         {/* Error Message */}
         {error && (
