@@ -20,19 +20,28 @@ export default function VerifyEmailPage() {
   const otpSentRef = useRef(false)
 
   useEffect(() => {
+    console.log('[v0] verify-email: Page mounted, checking for signup email in sessionStorage')
     const storedEmail = sessionStorage.getItem('signupEmail')
-    const storedName = sessionStorage.getItem('fullName')
+    const storedName = sessionStorage.getItem('signupFullName')
+    
+    console.log('[v0] verify-email: storedEmail:', storedEmail, 'storedName:', storedName)
+    
     if (!storedEmail) {
+      console.log('[v0] verify-email: No email in sessionStorage, redirecting to signup')
       router.push('/signup')
       return
     }
+    
     setEmail(storedEmail)
     setFullName(storedName || 'User')
 
     // Auto-send OTP when user arrives from signup
     if (!otpSentRef.current) {
+      console.log('[v0] verify-email: Triggering OTP send for:', storedEmail)
       otpSentRef.current = true
       sendOtpToEmail(storedEmail)
+    } else {
+      console.log('[v0] verify-email: OTP already sent, skipping')
     }
   }, [router])
 
