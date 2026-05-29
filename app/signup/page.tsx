@@ -42,7 +42,6 @@ export default function SignupPage() {
     }
 
     setGeneralError('')
-    setIsExistingAccount(false)
 
     if (!validateForm()) {
       return
