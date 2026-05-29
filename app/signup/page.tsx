@@ -51,34 +51,17 @@ export default function SignupPage() {
     setIsLoading(true)
 
     try {
-      console.log('[v0] signup: Sending OTP to email:', email)
+      console.log('[v0] signup: Storing user info and redirecting to verify-email')
       
-      // Send OTP directly - Supabase will handle whether email exists or not
-      const otpResponse = await fetch('/api/auth/send-otp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
-      })
-
-      const otpData = await otpResponse.json()
-
-      if (!otpResponse.ok) {
-        console.error('[v0] signup: OTP sending failed:', otpData)
-        setGeneralError(otpData.error || 'Unable to send verification code. Please try again.')
-        submitInProgressRef.current = false
-        return
-      }
-
-      console.log('[v0] signup: OTP sent successfully - redirecting to verify-email page')
-      
-      // Store info and redirect to OTP verification page
+      // Just store info and redirect to verify-email page
+      // Verify-email page will handle sending OTP (to avoid duplicate requests)
       sessionStorage.setItem('signupEmail', email)
       sessionStorage.setItem('signupFullName', fullName)
       
-      // Redirect to OTP page where user will verify code
+      // Redirect to OTP verification page
       setTimeout(() => {
         router.push('/verify-email')
-      }, 500)
+      }, 300)
     } catch (error) {
       console.error('[v0] signup: Unexpected error:', error)
       const errorMessage = error instanceof Error ? error.message : 'Network error. Please try again.'
@@ -156,7 +139,7 @@ export default function SignupPage() {
               disabled={isLoading}
               className="w-full px-4 sm:px-6 py-3 sm:py-4 bg-white text-[#0000ff] font-bold text-sm sm:text-lg rounded-xl sm:rounded-2xl shadow-2xl hover:shadow-xl hover:scale-105 disabled:opacity-70 disabled:cursor-not-allowed disabled:hover:scale-100 transition-all duration-300 active:scale-95"
             >
-              {isLoading ? 'Sending Code...' : 'CREATE ACCOUNT'}
+              {isLoading ? 'Continuing...' : 'CREATE ACCOUNT'}
             </button>
           </form>
 
