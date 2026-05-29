@@ -27,11 +27,13 @@ export async function POST(request: NextRequest) {
       },
     })
 
+    console.log('[v0] Supabase response:', { success: !error, error: error?.message, data })
+
     if (error) {
-      console.error('[v0] Supabase signInWithOtp error:', error.message)
+      console.error('[v0] Supabase signInWithOtp error:', error.message, error.status)
       
       // Handle rate limiting specifically
-      if (error.message?.includes('rate') || error.message?.includes('429')) {
+      if (error.message?.includes('rate') || error.message?.includes('429') || error.status === 429) {
         return NextResponse.json(
           { error: 'Too many requests. Please wait before requesting another code.' },
           { status: 429 }
@@ -40,7 +42,7 @@ export async function POST(request: NextRequest) {
       
       return NextResponse.json(
         { error: error.message || 'Failed to send verification code' },
-        { status: 400 }
+        { status: error.status || 400 }
       )
     }
 

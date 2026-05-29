@@ -48,16 +48,11 @@ export default function VerifyEmailPage() {
       })
 
       const data = await response.json()
+      console.log('[v0] verify-email: OTP response status:', response.status, 'data:', data)
 
       if (!response.ok) {
-        console.error('[v0] verify-email: OTP send failed:', data.error)
-        
-        // If rate limited, suggest waiting or using a different email
-        if (response.status === 429 || data.error?.includes('rate limit')) {
-          setOtpError('Too many requests for this email. Please wait 2-3 minutes before trying again, or go back and use a different email address.')
-        } else {
-          setOtpError(data.error || 'Failed to send verification code. Please try resending.')
-        }
+        console.error('[v0] verify-email: OTP send failed:', data.error, 'Status:', response.status)
+        setOtpError(data.error || 'Failed to send verification code. Please try resending.')
         setIsOtpSent(false)
         return
       }
@@ -247,17 +242,11 @@ export default function VerifyEmailPage() {
           </div>
         </div>
 
-        {/* OTP Send Status */}
-        {otpError && (
+        {/* OTP Send Status - Only show if there was an error OR if successfully sent */}
+        {otpError && !otpError.includes('Too many requests') && (
           <div className="mb-4 bg-red-500 bg-opacity-20 border border-red-400 rounded-lg p-3 flex items-start gap-2">
             <AlertCircle className="w-4 sm:w-5 h-4 sm:h-5 text-red-300 flex-shrink-0 mt-0.5" />
             <p className="text-red-200 text-xs sm:text-sm">{otpError}</p>
-          </div>
-        )}
-
-        {!isOtpSent && !otpError && (
-          <div className="mb-4 bg-blue-500 bg-opacity-20 border border-blue-400 rounded-lg p-3 text-center">
-            <p className="text-blue-200 text-xs sm:text-sm">Sending verification code...</p>
           </div>
         )}
 
@@ -302,16 +291,6 @@ export default function VerifyEmailPage() {
           <p className="text-white text-center text-xs sm:text-sm opacity-70">
             Resend available in {formatTime(timeLeft)}
           </p>
-        )}
-
-        {/* Back to Signup Button - for rate limit scenarios */}
-        {otpError && otpError.includes('Too many requests') && (
-          <button
-            onClick={() => router.push('/signup')}
-            className="w-full px-4 sm:px-6 py-2.5 sm:py-3 bg-red-600/40 border border-red-400 text-white font-semibold text-sm sm:text-base rounded-lg sm:rounded-2xl hover:bg-red-600/60 transition-all mt-3"
-          >
-            Try Different Email
-          </button>
         )}
       </div>
 
