@@ -12,7 +12,6 @@ export default function SignupPage() {
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [isLoading, setIsLoading] = useState(false)
   const [generalError, setGeneralError] = useState('')
-  const [isExistingAccount, setIsExistingAccount] = useState(false)
   
   // Prevent duplicate submissions
   const submitInProgressRef = useRef(false)
@@ -53,40 +52,31 @@ export default function SignupPage() {
     setIsLoading(true)
 
     try {
-      console.log('[v0] signup: Step 1 - Checking if email exists:', email)
+      console.log('[v0] signup: Sending OTP to email:', email)
       
-      // STEP 1: Check if email already exists
-      const checkEmailResponse = await fetch('/api/auth/check-email', {
+      // Send OTP directly - Supabase will handle whether email exists or not
+      const otpResponse = await fetch('/api/auth/send-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
       })
 
-      const checkEmailData = await checkEmailResponse.json()
+      const otpData = await otpResponse.json()
 
-      if (!checkEmailResponse.ok) {
-        console.error('[v0] signup: Email check failed:', checkEmailData)
-        setGeneralError(checkEmailData.error || 'Unable to verify email. Please try again.')
+      if (!otpResponse.ok) {
+        console.error('[v0] signup: OTP sending failed:', otpData)
+        setGeneralError(otpData.error || 'Unable to send verification code. Please try again.')
         submitInProgressRef.current = false
         return
       }
 
-      // If email already exists, show login prompt
-      if (checkEmailData.exists) {
-        console.log('[v0] signup: Email already exists')
-        setIsExistingAccount(true)
-        setGeneralError(checkEmailData.message || 'An account with this email already exists. Please login.')
-        submitInProgressRef.current = false
-        return
-      }
-
-      console.log('[v0] signup: Email is available - redirecting to OTP page')
+      console.log('[v0] signup: OTP sent successfully - redirecting to verify-email page')
       
-      // Email is new - store info and redirect to OTP page
+      // Store info and redirect to OTP verification page
       sessionStorage.setItem('signupEmail', email)
       sessionStorage.setItem('signupFullName', fullName)
       
-      // Redirect to OTP page where user will get OTP sent and verify
+      // Redirect to OTP page where user will verify code
       setTimeout(() => {
         router.push('/verify-email')
       }, 500)
@@ -98,10 +88,6 @@ export default function SignupPage() {
     } finally {
       setIsLoading(false)
     }
-  }
-
-  const handleLoginRedirect = () => {
-    router.push('/signin')
   }
 
   return (
@@ -119,26 +105,6 @@ export default function SignupPage() {
 
         {/* Form Card */}
         <div className="bg-white/10 backdrop-blur-lg border border-white/20 rounded-2xl sm:rounded-3xl p-5 sm:p-8 mb-4 sm:mb-6">
-          {/* Show existing account error with login redirect */}
-          {isExistingAccount && (
-            <div className="mb-6">
-              <div className="bg-orange-500/20 border border-orange-500/50 rounded-lg p-4 mb-4">
-                <p className="text-orange-200 text-sm sm:text-base font-semibold mb-3">
-                  Account Already Exists
-                </p>
-                <p className="text-orange-100 text-xs sm:text-sm mb-4">
-                  An account with this email already exists. Please login to your account instead.
-                </p>
-                <button
-                  onClick={handleLoginRedirect}
-                  className="w-full px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white font-semibold text-sm rounded-lg transition-colors"
-                >
-                  Login Instead
-                </button>
-              </div>
-            </div>
-          )}
-
           <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
             {/* Full Name Input */}
             <div>
@@ -150,7 +116,7 @@ export default function SignupPage() {
                   setFullName(e.target.value)
                   if (errors.fullName) setErrors({ ...errors, fullName: '' })
                 }}
-                disabled={isLoading || isExistingAccount}
+                disabled={isLoading}
                 className="w-full px-4 sm:px-6 py-3 sm:py-4 bg-blue-600/40 border border-white/30 rounded-xl sm:rounded-2xl text-white text-sm sm:text-base placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/50 focus:border-white/60 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               />
               {errors.fullName && (
@@ -167,9 +133,8 @@ export default function SignupPage() {
                 onChange={(e) => {
                   setEmail(e.target.value)
                   if (errors.email) setErrors({ ...errors, email: '' })
-                  setIsExistingAccount(false)
                 }}
-                disabled={isLoading || isExistingAccount}
+                disabled={isLoading}
                 className="w-full px-4 sm:px-6 py-3 sm:py-4 bg-blue-600/40 border border-white/30 rounded-xl sm:rounded-2xl text-white text-sm sm:text-base placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/50 focus:border-white/60 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               />
               {errors.email && (
@@ -177,8 +142,8 @@ export default function SignupPage() {
               )}
             </div>
 
-            {/* General Error (for non-existing-account errors) */}
-            {generalError && !isExistingAccount && (
+            {/* General Error */}
+            {generalError && (
               <div className="bg-red-500/20 border border-red-500/50 rounded-lg p-3 text-red-200 text-xs sm:text-sm">
                 {generalError}
               </div>
@@ -189,10 +154,10 @@ export default function SignupPage() {
             {/* Create Account Button */}
             <button
               type="submit"
-              disabled={isLoading || isExistingAccount}
+              disabled={isLoading}
               className="w-full px-4 sm:px-6 py-3 sm:py-4 bg-white text-[#0000ff] font-bold text-sm sm:text-lg rounded-xl sm:rounded-2xl shadow-2xl hover:shadow-xl hover:scale-105 disabled:opacity-70 disabled:cursor-not-allowed disabled:hover:scale-100 transition-all duration-300 active:scale-95"
             >
-              {isLoading ? 'Verifying...' : 'CREATE ACCOUNT'}
+              {isLoading ? 'Sending Code...' : 'CREATE ACCOUNT'}
             </button>
           </form>
 
