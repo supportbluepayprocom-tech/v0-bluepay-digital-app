@@ -65,9 +65,39 @@ export default function SigninPage() {
     setIsLoading(true)
 
     try {
-      console.log('[v0] signin: Sending OTP to:', email)
+      console.log('[v0] signin: Step 1 - Verifying if account exists:', email)
       
-      // Send OTP for signin
+      // STEP 1: Check if account exists
+      const accountCheckResponse = await fetch('/api/auth/verify-account', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      })
+
+      const accountCheckData = await accountCheckResponse.json()
+
+      if (!accountCheckResponse.ok) {
+        console.error('[v0] signin: Account check failed:', accountCheckData)
+        setGeneralError(accountCheckData.error || 'Unable to verify account. Please try again.')
+        submitInProgressRef.current = false
+        return
+      }
+
+      // If account doesn't exist, redirect to signup
+      if (!accountCheckData.exists) {
+        console.log('[v0] signin: Account does not exist - showing signup prompt')
+        setGeneralError('No account found with this email. Please create an account first.')
+        setSuccessMessage('')
+        setTimeout(() => {
+          router.push('/signup')
+        }, 2000)
+        submitInProgressRef.current = false
+        return
+      }
+
+      console.log('[v0] signin: Account verified - sending OTP')
+      
+      // STEP 2: Send OTP for signin
       const otpResponse = await fetch('/api/auth/send-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

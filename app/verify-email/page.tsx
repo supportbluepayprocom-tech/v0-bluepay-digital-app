@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { AlertCircle, CheckCircle } from 'lucide-react'
-import BPCNotificationModal from '@/components/BPCNotificationModal'
 
 export default function VerifyEmailPage() {
   const router = useRouter()
@@ -15,7 +14,6 @@ export default function VerifyEmailPage() {
   const [canResend, setCanResend] = useState(false)
   const [email, setEmail] = useState('')
   const [fullName, setFullName] = useState('')
-  const [showBpcModal, setShowBpcModal] = useState(false)
   const inputRefs = useRef<(HTMLInputElement | null)[]>([])
 
   useEffect(() => {
@@ -92,6 +90,8 @@ export default function VerifyEmailPage() {
     setError('')
 
     try {
+      console.log('[v0] verify-email: Verifying OTP for:', email)
+      
       const response = await fetch('/api/auth/verify-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -104,17 +104,24 @@ export default function VerifyEmailPage() {
       const data = await response.json()
 
       if (!response.ok) {
-        setError(data.error || 'Verification failed')
+        console.error('[v0] verify-email: OTP verification failed:', data.error)
+        setError(data.error || 'Verification failed. Please check your code and try again.')
         return
       }
 
+      console.log('[v0] verify-email: OTP verified successfully')
       setSuccess(true)
-      // Show BPC modal immediately after successful verification
+      
+      // Clear session storage after successful verification
+      sessionStorage.removeItem('signinEmail')
+      sessionStorage.removeItem('signupEmail')
+      
+      // Redirect to dashboard after short delay
       setTimeout(() => {
-        setShowBpcModal(true)
-      }, 500)
+        router.push('/dashboard')
+      }, 1000)
     } catch (err) {
-      console.error('[v0] Verification error:', err)
+      console.error('[v0] verify-email: Verification error:', err)
       setError('An error occurred. Please try again.')
     } finally {
       setIsLoading(false)
@@ -261,15 +268,8 @@ export default function VerifyEmailPage() {
         )}
       </div>
 
-      {/* BPC Notification Modal */}
-      <BPCNotificationModal
-        isOpen={showBpcModal}
-        onClose={() => {
-          setShowBpcModal(false)
-          router.push('/dashboard')
-        }}
-        userName={fullName}
-      />
+      {/* BPC Notification Modal - Removed, now redirects to dashboard directly */}
+      {/* Previous modal code removed to fix redirect flow */}
     </div>
   )
 }
