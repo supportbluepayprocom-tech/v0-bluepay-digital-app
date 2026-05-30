@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { ChevronLeft, Copy, Check, Users, TrendingUp, Gift, UserCheck, Calendar } from 'lucide-react'
 import { createClient } from '@supabase/supabase-js'
+import { getBalance, isEarningsPaused } from '@/lib/balance-store'
+import { MAX_BALANCE, EARNINGS_PAUSED_MESSAGE } from '@/lib/constants'
 
 export default function ReferAndEarnPage() {
   const router = useRouter()
@@ -17,6 +19,7 @@ export default function ReferAndEarnPage() {
   const [balance, setBalance] = useState(0)
   const [loading, setLoading] = useState(true)
   const [referralHistory, setReferralHistory] = useState<Array<any>>([])
+  const [earningsPaused, setEarningsPaused] = useState(false)
 
   useEffect(() => {
     const loadProfileData = async () => {
@@ -42,6 +45,14 @@ export default function ReferAndEarnPage() {
             setActiveReferrals(profile.active_referrals || 0)
             setTotalEarned(profile.total_earned || 0)
             setBalance(profile.balance || 0)
+
+            // Check if earnings are paused
+            const currentBalance = profile.balance || 0
+            if (currentBalance >= MAX_BALANCE) {
+              setEarningsPaused(true)
+            } else {
+              setEarningsPaused(isEarningsPaused())
+            }
 
             // Fetch referral history from referrals table
             const { data: referrals } = await supabase
