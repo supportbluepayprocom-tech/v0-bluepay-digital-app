@@ -123,8 +123,10 @@ export default function DashboardPage() {
 
   // Set greeting based on current time
   useEffect(() => {
-    setGreeting(getTimeBasedGreeting())
-  }, [])
+    const timeGreeting = getTimeBasedGreeting()
+    const userName = sessionStorage.getItem('userName') || fullName || 'User'
+    setGreeting(`${timeGreeting}, ${userName}`)
+  }, [fullName])
 
   // Helper functions for transactions
   const getTransactionColor = (type: string): string => {
