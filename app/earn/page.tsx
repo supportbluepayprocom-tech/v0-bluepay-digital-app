@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, CheckCircle, Gift, Zap, Star, Trophy } from 'lucide-react'
+import { ArrowLeft, CheckCircle, Gift, Zap, Star, Trophy, Lock } from 'lucide-react'
 import { createClient } from '@supabase/supabase-js'
-import { getBalance, addBalance, addTransaction, isEarningsPaused } from '@/lib/balance-store'
+import { getBalance, addBalance, addTransaction, isEarningsPaused, isTaskCompleted, completeTask, canRotateTask } from '@/lib/balance-store'
 import { MAX_BALANCE, EARNINGS_PAUSED_MESSAGE } from '@/lib/constants'
 
 export default function EarnMorePage() {
@@ -24,6 +24,9 @@ export default function EarnMorePage() {
     // Load balance from unified store
     const currentBalance = getBalance()
     setBalance(currentBalance)
+    
+    // Load completed tasks from storage
+    loadCompletedTasks()
     
     // Check if earnings are paused
     if (currentBalance >= MAX_BALANCE) {
@@ -60,6 +63,17 @@ export default function EarnMorePage() {
     } catch (err) {
       console.error('[v0] Error loading user:', err)
     }
+  }
+
+  const loadCompletedTasks = () => {
+    // Load completed tasks from storage
+    const completed: number[] = []
+    tasks.forEach(task => {
+      if (isTaskCompleted(task.id)) {
+        completed.push(task.id)
+      }
+    })
+    setCompletedTasks(completed)
   }
 
   const tasks = [
@@ -110,6 +124,10 @@ export default function EarnMorePage() {
       const result = addBalance(task.reward)
       const newBalance = typeof result === 'object' ? result.newBalance : result
       setBalance(newBalance)
+      
+      // Mark task as completed in storage
+      completeTask(taskId)
+      
       setCompletedTasks([...completedTasks, taskId])
       setTotalEarnings(totalEarnings + task.reward)
 
@@ -181,14 +199,25 @@ export default function EarnMorePage() {
               >
                 <div className="flex items-start gap-2 mb-2">
                   <div className={`p-2 rounded ${isCompleted ? 'bg-gray-200' : 'bg-[#0000ff]/10'}`}>
-                    <Icon className={`w-4 h-4 ${isCompleted ? 'text-gray-400' : 'text-[#0000ff]'}`} />
+                    {isCompleted ? (
+                      <Lock className="w-4 h-4 text-gray-600" />
+                    ) : (
+                      <Icon className={`w-4 h-4 ${isCompleted ? 'text-gray-400' : 'text-[#0000ff]'}`} />
+                    )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h4 className={`font-semibold text-xs mb-1 ${isCompleted ? 'text-gray-500' : 'text-gray-900'}`}>
-                      {task.title}
-                    </h4>
+                    <div className="flex items-center gap-2">
+                      <h4 className={`font-semibold text-xs mb-0 ${isCompleted ? 'text-gray-500 line-through' : 'text-gray-900'}`}>
+                        {task.title}
+                      </h4>
+                      {isCompleted && (
+                        <span className="text-xs bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded font-semibold">
+                          Locked
+                        </span>
+                      )}
+                    </div>
                     <span
-                      className={`text-xs font-semibold px-1.5 py-0.5 rounded ${
+                      className={`text-xs font-semibold px-1.5 py-0.5 rounded inline-block mt-1 ${
                         task.difficulty === 'Easy'
                           ? 'bg-green-100 text-green-700'
                           : task.difficulty === 'Medium'
@@ -208,7 +237,7 @@ export default function EarnMorePage() {
                     disabled={isCompleted || claimingTaskId === task.id || earningsPaused}
                     className={`px-2.5 py-1 rounded text-xs font-semibold transition ${
                       isCompleted
-                        ? 'bg-gray-200 text-gray-500'
+                        ? 'bg-gray-200 text-gray-500 flex items-center gap-1'
                         : earningsPaused
                           ? 'bg-gray-300 text-gray-600 cursor-not-allowed'
                           : claimingTaskId === task.id
@@ -217,7 +246,18 @@ export default function EarnMorePage() {
                     }`}
                     title={earningsPaused ? EARNINGS_PAUSED_MESSAGE : ''}
                   >
-                    {isCompleted ? '✓' : earningsPaused ? 'Paused' : claimingTaskId === task.id ? 'Claiming...' : 'Claim'}
+                    {isCompleted ? (
+                      <>
+                        <Lock className="w-3 h-3" />
+                        Locked
+                      </>
+                    ) : earningsPaused ? (
+                      'Paused'
+                    ) : claimingTaskId === task.id ? (
+                      'Claiming...'
+                    ) : (
+                      'Claim'
+                    )}
                   </button>
                 </div>
               </div>
