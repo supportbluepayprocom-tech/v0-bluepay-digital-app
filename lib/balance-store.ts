@@ -4,16 +4,22 @@ import { MAX_BALANCE } from '@/lib/constants'
 const BALANCE_KEY = 'bluepay_demo_balance'
 const TRANSACTIONS_KEY = 'bluepay_transactions'
 const EARNINGS_PAUSED_KEY = 'bluepay_earnings_paused'
+const COMPLETED_TASKS_KEY = 'bluepay_completed_tasks'
+const CURRENT_TASK_ID_KEY = 'bluepay_current_task_id'
+const TASK_ROTATION_DATE_KEY = 'bluepay_task_rotation_date'
 const INITIAL_BALANCE = 250000
 
 export interface Transaction {
   id: string
-  type: 'withdrawal' | 'airtime' | 'data' | 'betting' | 'electricity' | 'tv' | 'reward'
+  type: 'withdrawal' | 'airtime' | 'data' | 'betting' | 'electricity' | 'tv' | 'reward' | 'daily_task' | 'referral' | 'bonus' | 'promotional'
   amount: number
   status: 'success' | 'pending' | 'failed'
   description: string
   timestamp: string
 }
+
+// Financial transaction types only
+const FINANCIAL_TRANSACTION_TYPES = ['withdrawal', 'airtime', 'data', 'betting', 'electricity', 'tv']
 
 // Initialize balance if not exists
 export function initializeBalance() {
@@ -132,11 +138,18 @@ export function addTransaction(transaction: Omit<Transaction, 'id' | 'timestamp'
   }
 }
 
-// Get all transactions
+// Get all transactions (including earn rewards)
 export function getTransactions(): Transaction[] {
   if (typeof window === 'undefined') return []
   const stored = localStorage.getItem(TRANSACTIONS_KEY)
   return stored ? JSON.parse(stored) : []
+}
+
+// Get only financial transactions (filter out earn rewards)
+export function getFinancialTransactions(): Transaction[] {
+  if (typeof window === 'undefined') return []
+  const allTransactions = getTransactions()
+  return allTransactions.filter(tx => FINANCIAL_TRANSACTION_TYPES.includes(tx.type))
 }
 
 // Clear all data (for testing)
@@ -144,4 +157,94 @@ export function clearAll() {
   if (typeof window === 'undefined') return
   localStorage.removeItem(BALANCE_KEY)
   localStorage.removeItem(TRANSACTIONS_KEY)
+}
+
+// ============================================
+// Task Rotation System Functions
+// ============================================
+
+interface CompletedTask {
+  id: number
+  completedAt: number // timestamp
+}
+
+// Mark a task as completed with timestamp
+export function completeTask(taskId: number): void {
+  if (typeof window === 'undefined') return
+  
+  try {
+    const stored = localStorage.getItem(COMPLETED_TASKS_KEY)
+    const completed: CompletedTask[] = stored ? JSON.parse(stored) : []
+    
+    // Check if already completed
+    if (completed.some(t => t.id === taskId)) {
+      return
+    }
+    
+    completed.push({ id: taskId, completedAt: Date.now() })
+    localStorage.setItem(COMPLETED_TASKS_KEY, JSON.stringify(completed))
+    
+    // Update rotation date to today
+    const today = new Date().toISOString().split('T')[0]
+    localStorage.setItem(TASK_ROTATION_DATE_KEY, today)
+  } catch (err) {
+    console.error('[v0] Error completing task:', err)
+  }
+}
+
+// Check if a task is completed
+export function isTaskCompleted(taskId: number): boolean {
+  if (typeof window === 'undefined') return false
+  
+  try {
+    const stored = localStorage.getItem(COMPLETED_TASKS_KEY)
+    const completed: CompletedTask[] = stored ? JSON.parse(stored) : []
+    return completed.some(t => t.id === taskId)
+  } catch (err) {
+    console.error('[v0] Error checking task:', err)
+    return false
+  }
+}
+
+// Check if 24 hours have passed since task was completed
+export function canRotateTask(): boolean {
+  if (typeof window === 'undefined') return false
+  
+  try {
+    const stored = localStorage.getItem(COMPLETED_TASKS_KEY)
+    if (!stored) return false
+    
+    const completed: CompletedTask[] = JSON.parse(stored)
+    if (completed.length === 0) return false
+    
+    const lastCompleted = completed[completed.length - 1]
+    const now = Date.now()
+    const hoursPassed = (now - lastCompleted.completedAt) / (1000 * 60 * 60)
+    
+    return hoursPassed >= 24
+  } catch (err) {
+    console.error('[v0] Error checking rotation:', err)
+    return false
+  }
+}
+
+// Get completed tasks
+export function getCompletedTasks(): CompletedTask[] {
+  if (typeof window === 'undefined') return []
+  
+  try {
+    const stored = localStorage.getItem(COMPLETED_TASKS_KEY)
+    return stored ? JSON.parse(stored) : []
+  } catch (err) {
+    console.error('[v0] Error getting completed tasks:', err)
+    return []
+  }
+}
+
+// Clear task completion history (for new task rotation)
+export function clearTaskHistory(): void {
+  if (typeof window === 'undefined') return
+  localStorage.removeItem(COMPLETED_TASKS_KEY)
+  localStorage.removeItem(CURRENT_TASK_ID_KEY)
+  localStorage.removeItem(TASK_ROTATION_DATE_KEY)
 }

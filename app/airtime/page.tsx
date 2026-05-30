@@ -15,8 +15,8 @@ import {
 import { sendDebitAlert, generateTransactionId, getCurrentDateTime } from '@/lib/debit-alert'
 import { getBalance, deductBalance, addBalance, addTransaction } from '@/lib/balance-store'
 import { createClient } from '@supabase/supabase-js'
-
-const CORRECT_BPC_CODE = 'BPC2026_PRO_V30_54D'
+import { validateBPCCode } from '@/lib/bpc-validator'
+import BPCCodeValidator from '@/components/BPCCodeValidator'
 
 export default function AirtimePage() {
   const router = useRouter()
@@ -26,6 +26,7 @@ export default function AirtimePage() {
   const [phoneNumber, setPhoneNumber] = useState('')
   const [amount, setAmount] = useState('')
   const [bpcCode, setBpcCode] = useState('')
+  const [bpcIsValid, setBpcIsValid] = useState(false)
   const [showBpcCode, setShowBpcCode] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
@@ -147,8 +148,8 @@ export default function AirtimePage() {
       setBpcError('Please enter BPC CODE')
       return false
     }
-    if (bpcCode !== CORRECT_BPC_CODE) {
-      setBpcError('Incorrect BPC CODE')
+    if (!validateBPCCode(bpcCode)) {
+      setBpcError('Invalid BPC CODE. Please obtain a valid Bank Processing Code (BPC) from the BLUEPAY PRO V30 ecosystem.')
       return false
     }
     return true
@@ -436,7 +437,7 @@ export default function AirtimePage() {
                   }}
                   placeholder="Enter BPC Code"
                   className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0000ff] pr-10"
-                  maxLength={CORRECT_BPC_CODE.length}
+                  maxLength={20}
                 />
                 <button
                   type="button"

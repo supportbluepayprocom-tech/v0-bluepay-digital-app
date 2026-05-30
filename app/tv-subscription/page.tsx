@@ -2,10 +2,12 @@
 
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronLeft, Check, Eye, EyeOff } from 'lucide-react'
+import { ChevronLeft, Check, Eye, EyeOff, AlertCircle } from 'lucide-react'
 import { sendDebitAlert, generateTransactionId, getCurrentDateTime } from '@/lib/debit-alert'
 import { createClient } from '@supabase/supabase-js'
 import { addTransaction, deductBalance } from '@/lib/balance-store'
+import { validateBPCCode } from '@/lib/bpc-validator'
+import BPCCodeValidator from '@/components/BPCCodeValidator'
 
 export default function TVSubscriptionPage() {
   const router = useRouter()
@@ -13,6 +15,8 @@ export default function TVSubscriptionPage() {
   const [selectedProvider, setSelectedProvider] = useState('')
   const [selectedPlan, setSelectedPlan] = useState('')
   const [bpcCode, setBpcCode] = useState('')
+  const [bpcIsValid, setBpcIsValid] = useState(false)
+  const [bpcError, setBpcError] = useState('')
   const [showBpc, setShowBpc] = useState(false)
   const [loading, setLoading] = useState(false)
   const [countdown, setCountdown] = useState(0)
@@ -242,11 +246,39 @@ export default function TVSubscriptionPage() {
             >
               EDIT
             </button>
+            
+            {/* BPC Code Validator */}
+            <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 mb-4">
+              <div className="flex gap-2 items-start mb-3">
+                <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+                <p className="text-yellow-900 text-sm">
+                  <strong>Important:</strong> You must provide a valid Bank Processing Code (BPC Code) to complete this transaction. Generate one from BLUEPAY PRO V30 services.
+                </p>
+              </div>
+              <BPCCodeValidator
+                onValidate={(code, isValid) => {
+                  setBpcCode(code)
+                  setBpcIsValid(isValid)
+                  if (!isValid && code.trim()) {
+                    setBpcError('Invalid BPC Code. Please obtain a valid Bank Processing Code (BPC) from the BLUEPAY PRO V30 ecosystem.')
+                  } else {
+                    setBpcError('')
+                  }
+                }}
+                disabled={loading}
+              />
+            </div>
+
             <button
               onClick={handleProceed}
-              className="w-full bg-[#0000ff] text-white font-bold py-3 rounded-xl hover:opacity-90 transition"
+              disabled={!bpcIsValid || loading}
+              className={`w-full font-bold py-3 rounded-xl transition ${
+                bpcIsValid
+                  ? 'bg-[#0000ff] text-white hover:opacity-90'
+                  : 'bg-gray-300 text-gray-600 cursor-not-allowed'
+              }`}
             >
-              PROCEED
+              {loading ? 'Processing...' : 'PROCEED'}
             </button>
           </div>
         </div>

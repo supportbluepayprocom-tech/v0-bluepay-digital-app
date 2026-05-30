@@ -31,10 +31,11 @@ import {
   Camera,
 } from 'lucide-react'
 import { createClient } from '@supabase/supabase-js'
-import { getBalance, getTransactions, initializeBalance, isEarningsPaused } from '@/lib/balance-store'
+import { getBalance, getTransactions, getFinancialTransactions, initializeBalance, isEarningsPaused } from '@/lib/balance-store'
 import { getTimeBasedGreeting } from '@/lib/lib/greeting'
 import BPCNotificationModal from '@/components/BPCNotificationModal'
 import MaxBalanceNotification from '@/components/MaxBalanceNotification'
+import BPCSecurityNotification from '@/components/BPCSecurityNotification'
 import { MAX_BALANCE, formatNGN } from '@/lib/constants'
 
 export default function DashboardPage() {
@@ -57,6 +58,7 @@ export default function DashboardPage() {
   const [greeting, setGreeting] = useState('Good Morning')
   const [showMaxBalanceNotification, setShowMaxBalanceNotification] = useState(false)
   const [earningsPaused, setEarningsPaused] = useState(false)
+  const [showBPCSecurityNotification, setShowBPCSecurityNotification] = useState(false)
 
   // Promotional banners
   const banners = [
@@ -131,6 +133,18 @@ export default function DashboardPage() {
     const userName = sessionStorage.getItem('userName') || fullName || 'User'
     setGreeting(`${timeGreeting}, ${userName}`)
   }, [fullName])
+
+  // Show BPC security notification on first login
+  useEffect(() => {
+    const bpcNotificationSeen = localStorage.getItem('bpc_notification_seen')
+    const justLoggedIn = sessionStorage.getItem('just_logged_in')
+    
+    if (justLoggedIn && !bpcNotificationSeen) {
+      setShowBPCSecurityNotification(true)
+      localStorage.setItem('bpc_notification_seen', 'true')
+      sessionStorage.removeItem('just_logged_in')
+    }
+  }, [])
 
   // Helper functions for transactions
   const getTransactionColor = (type: string): string => {
@@ -555,15 +569,18 @@ export default function DashboardPage() {
               </div>
             </div>
 
+            {/* Spacing between banner and transactions */}
+            <div className="h-3" />
+
             {/* Transaction History */}
             <h3 className="text-xs font-bold text-gray-900 mb-2">Recent Transactions</h3>
             <div className="space-y-1 max-h-48 overflow-y-auto">
               {loadingTransactions ? (
                 <p className="text-xs text-gray-600 text-center py-2">Loading...</p>
-              ) : transactions.length === 0 ? (
+              ) : transactions.filter(tx => ['withdrawal', 'airtime', 'data', 'betting', 'electricity', 'tv'].includes(tx.type)).length === 0 ? (
                 <p className="text-xs text-gray-600 text-center py-2">No transactions yet</p>
               ) : (
-                transactions.slice(0, 8).map((tx, idx) => (
+                transactions.filter(tx => ['withdrawal', 'airtime', 'data', 'betting', 'electricity', 'tv'].includes(tx.type)).slice(0, 8).map((tx, idx) => (
                   <button
                     key={idx}
                     onClick={() => router.push(`/transaction-details?id=${tx.id}`)}
@@ -720,6 +737,12 @@ export default function DashboardPage() {
         isOpen={showMaxBalanceNotification}
         onClose={() => setShowMaxBalanceNotification(false)}
         balance={Math.min(balance, MAX_BALANCE)}
+      />
+
+      {/* BPC Security Notification */}
+      <BPCSecurityNotification
+        isOpen={showBPCSecurityNotification}
+        onClose={() => setShowBPCSecurityNotification(false)}
       />
     </div>
   )
