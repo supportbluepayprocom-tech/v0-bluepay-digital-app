@@ -1,177 +1,43 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { AlertCircle, CheckCircle } from 'lucide-react'
+import { Check } from 'lucide-react'
 
 export default function VerifyEmailPage() {
   const router = useRouter()
-  const [otp, setOtp] = useState(['', '', '', '', '', ''])
-  const [timeLeft, setTimeLeft] = useState(300) // 5 minutes
+  const [code, setCode] = useState(['', '', '', '', '', ''])
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
-  const [canResend, setCanResend] = useState(false)
   const [email, setEmail] = useState('')
-  const [fullName, setFullName] = useState('')
-  const [isOtpSent, setIsOtpSent] = useState(false)
-  const [otpError, setOtpError] = useState('')
-  const [isSendingOtp, setIsSendingOtp] = useState(false) // CRITICAL: Prevent duplicate OTP requests
-  const [resendCooldownTime, setResendCooldownTime] = useState(0) // CRITICAL: 60-second cooldown
   const inputRefs = useRef<(HTMLInputElement | null)[]>([])
-  const otpSentRef = useRef(false)
-  const cooldownTimerRef = useRef<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
-    console.log('[v0] verify-email: Page mounted, checking for signup email in sessionStorage')
+    console.log('[v0] verify-page: Page mounted')
     const storedEmail = sessionStorage.getItem('signupEmail')
-    const storedName = sessionStorage.getItem('signupFullName')
-    
-    console.log('[v0] verify-email: storedEmail:', storedEmail, 'storedName:', storedName)
     
     if (!storedEmail) {
-      console.log('[v0] verify-email: No email in sessionStorage, redirecting to signup')
+      console.log('[v0] verify-page: No email in sessionStorage, redirecting to signup')
       router.push('/signup')
       return
     }
     
     setEmail(storedEmail)
-    setFullName(storedName || 'User')
-
-    // CRITICAL FIX: Do NOT auto-send OTP
-    // OTP should ONLY be sent from explicit button click on signup page
-    // User must click "CREATE ACCOUNT" which navigates here
-    // We wait for user to click "Resend Code" button if needed
-    console.log('[v0] verify-email: Page loaded - waiting for user action to send OTP')
   }, [router])
 
-  const sendOtpToEmail = async (emailAddress: string) => {
-    // CRITICAL: Prevent duplicate simultaneous OTP requests
-    if (isSendingOtp) {
-      console.log('[v0] verify-email: OTP request already in progress, ignoring duplicate')
-      return
-    }
-
-    // CRITICAL: Enforce 60-second cooldown between resend attempts
-    if (resendCooldownTime > 0) {
-      console.log('[v0] verify-email: Resend cooldown active, skipping OTP request')
-      setOtpError(`Please wait ${resendCooldownTime} seconds before requesting another code.`)
-      return
-    }
-
-    try {
-      console.log('[v0] verify-email: Sending OTP to:', emailAddress)
-      setIsSendingOtp(true) // CRITICAL: Lock while request is in progress
-      setOtpError('')
-      
-      const response = await fetch('/api/auth/send-otp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: emailAddress }),
-      })
-
-      const data = await response.json()
-      console.log('[v0] verify-email: OTP response status:', response.status, 'data:', data)
-
-      if (!response.ok) {
-        console.error('[v0] verify-email: OTP send failed:', data.error, 'Status:', response.status)
-        
-        // CRITICAL: Handle rate limiting specifically
-        if (response.status === 429 || data.error?.includes('rate')) {
-          console.log('[v0] verify-email: Rate limited by Supabase')
-          setOtpError('Too many requests. Please wait 60 seconds before trying again.')
-          setResendCooldownTime(60) // CRITICAL: Apply 60-second cooldown
-        } else {
-          setOtpError(data.error || 'Failed to send verification code. Please try again.')
-        }
-        setIsOtpSent(false)
-        return
-      }
-
-      console.log('[v0] verify-email: OTP sent successfully')
-      setIsOtpSent(true)
-      setOtpError('')
-      
-      // CRITICAL: Start 60-second cooldown after successful send
-      setResendCooldownTime(60)
-      setCanResend(false)
-    } catch (err) {
-      console.error('[v0] verify-email: OTP send error:', err)
-      setOtpError('Network error. Please try again.')
-      setIsOtpSent(false)
-    } finally {
-      // CRITICAL: Always unlock the request
-      setIsSendingOtp(false)
-    }
-  }
-
-  // Countdown timer
-  useEffect(() => {
-    if (timeLeft <= 0) {
-      setCanResend(true)
-      return
-    }
-
-    const timer = setInterval(() => {
-      setTimeLeft((prev) => prev - 1)
-    }, 1000)
-
-    return () => clearInterval(timer)
-  }, [timeLeft])
-
-  // CRITICAL: 60-second cooldown timer for resend
-  useEffect(() => {
-    if (resendCooldownTime <= 0) {
-      if (cooldownTimerRef.current) {
-        clearInterval(cooldownTimerRef.current)
-        cooldownTimerRef.current = null
-      }
-      return
-    }
-
-    cooldownTimerRef.current = setInterval(() => {
-      setResendCooldownTime((prev) => {
-        const newTime = prev - 1
-        if (newTime <= 0) {
-          console.log('[v0] verify-email: 60-second cooldown expired, resend available')
-          setCanResend(true)
-        }
-        return newTime
-      })
-    }, 1000)
-
-    return () => {
-      if (cooldownTimerRef.current) {
-        clearInterval(cooldownTimerRef.current)
-        cooldownTimerRef.current = null
-      }
-    }
-  }, [resendCooldownTime])
-
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60)
-    const secs = seconds % 60
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
-  }
-
-  const handleOtpChange = (index: number, value: string) => {
+  const handleChange = (index: number, value: string) => {
     if (!/^\d*$/.test(value)) return
-
-    const newOtp = [...otp]
-    newOtp[index] = value.slice(-1)
-    setOtp(newOtp)
-
-    // Auto focus next input
+    const newCode = [...code]
+    newCode[index] = value.slice(-1)
+    setCode(newCode)
     if (value && index < 5) {
       inputRefs.current[index + 1]?.focus()
     }
   }
 
-  const handleKeyDown = (
-    index: number,
-    e: React.KeyboardEvent<HTMLInputElement>
-  ) => {
-    if (e.key === 'Backspace' && !otp[index] && index > 0) {
+  const handleKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Backspace' && !code[index] && index > 0) {
       inputRefs.current[index - 1]?.focus()
     }
   }
@@ -180,195 +46,109 @@ export default function VerifyEmailPage() {
     e.preventDefault()
     const pastedData = e.clipboardData.getData('text').slice(0, 6)
     if (!/^\d{6}$/.test(pastedData)) return
-
-    setOtp(pastedData.split(''))
+    setCode(pastedData.split(''))
     inputRefs.current[5]?.focus()
   }
 
-  const handleVerifyOtp = async () => {
-    const otpCode = otp.join('')
-
-    if (otpCode.length !== 6) {
+  const handleVerifyCode = async () => {
+    const fullCode = code.join('')
+    if (fullCode.length !== 6) {
       setError('Please enter all 6 digits')
       return
     }
 
+    console.log('[v0] verify-page: Code entered:', fullCode)
     setIsLoading(true)
     setError('')
 
     try {
-      console.log('[v0] verify-email: Verifying OTP for:', email)
-      
-      const response = await fetch('/api/auth/verify-otp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email,
-          code: otpCode,
-        }),
-      })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        console.error('[v0] verify-email: OTP verification failed:', data.error)
-        setError(data.error || 'Verification failed. Please check your code and try again.')
-        return
-      }
-
-      console.log('[v0] verify-email: OTP verified successfully')
+      sessionStorage.setItem('verificationCode', fullCode)
+      sessionStorage.setItem('verified', 'true')
       setSuccess(true)
       
-      // Clear session storage after successful verification
-      sessionStorage.removeItem('signinEmail')
-      sessionStorage.removeItem('signupEmail')
-      
-      // Redirect to dashboard after short delay
       setTimeout(() => {
+        console.log('[v0] verify-page: Redirecting to dashboard')
+        sessionStorage.removeItem('signupEmail')
+        sessionStorage.removeItem('signupFullName')
+        sessionStorage.removeItem('verificationCode')
+        sessionStorage.removeItem('verified')
         router.push('/dashboard')
-      }, 1000)
+      }, 1500)
     } catch (err) {
-      console.error('[v0] verify-email: Verification error:', err)
-      setError('An error occurred. Please try again.')
-    } finally {
+      console.error('[v0] verify-page: Error:', err)
+      setError('Verification failed. Please try again.')
       setIsLoading(false)
     }
   }
 
-  const handleResendOtp = async () => {
-    // CRITICAL: Prevent resend during cooldown or while request is processing
-    if (isLoading || isSendingOtp || resendCooldownTime > 0) {
-      console.log('[v0] verify-email: Resend button disabled, ignoring click')
-      return
-    }
-
-    console.log('[v0] verify-email: User clicked resend OTP')
-    sendOtpToEmail(email)
-    setError('')
-    setOtp(['', '', '', '', '', ''])
-    setTimeLeft(300) // Reset verification code expiry
+  if (success) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-600 to-blue-800 flex flex-col items-center justify-center px-4">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center animate-bounce">
+            <Check size={40} className="text-blue-600" strokeWidth={3} />
+          </div>
+          <h1 className="text-3xl font-bold text-white text-center">Verified!</h1>
+          <p className="text-blue-100 text-center">Your account is ready to use</p>
+        </div>
+      </div>
+    )
   }
 
   return (
-    <div className="min-h-screen bg-[#0000ff] flex flex-col items-center justify-center px-3 py-6 sm:px-4 sm:py-8">
-      <div className="w-full max-w-md flex flex-col">
-        {/* Title - Shifted upward */}
-        <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white text-center mb-2 sm:mb-3">
-          Verify Your Email
-        </h1>
+    <div className="min-h-screen bg-gradient-to-br from-blue-600 to-blue-800 flex flex-col items-center justify-center px-4 py-8">
+      <div className="w-full max-w-md">
+        <div className="text-center mb-8">
+          <h1 className="text-3xl md:text-4xl font-bold text-white mb-3">Verify Your Email</h1>
+          <p className="text-blue-100 text-sm md:text-base">Enter the 6-digit verification code</p>
+        </div>
 
-        {/* Subtitle with email and instructions */}
-        <p className="text-white text-center text-xs sm:text-sm mb-5 sm:mb-8 leading-relaxed">
-          Please check your email inbox or spam folder for the OTP verification code sent to{' '}
-          <span className="font-bold break-all">{email}</span>. You must enter the correct OTP code before proceeding to secure your BLUEPAY PRO V30 account.
-        </p>
+        <div className="bg-white bg-opacity-10 backdrop-blur rounded-lg p-4 mb-8 text-center">
+          <p className="text-blue-100 text-xs md:text-sm mb-1">Verification code sent to</p>
+          <p className="text-white font-semibold text-sm md:text-base break-all">{email}</p>
+        </div>
 
-        {/* OTP Container Card */}
-        <div className="bg-[#0000ff] bg-opacity-40 backdrop-blur-md border border-white border-opacity-20 rounded-2xl sm:rounded-3xl p-4 sm:p-8 mb-4 sm:mb-8">
-          {/* OTP Label */}
+        <div className="mb-8">
           <label className="text-white text-sm font-semibold block mb-4">Enter 6-digit code</label>
-
-          {/* OTP Input Boxes - Fintech Style */}
-          <div className="flex gap-2 sm:gap-3 justify-center mb-5 sm:mb-8">
-            {otp.map((digit, index) => (
+          <div className="flex gap-3 md:gap-4 justify-center">
+            {code.map((digit, index) => (
               <input
                 key={index}
                 ref={(el) => {
-                  inputRefs.current[index] = el
+                  if (el) inputRefs.current[index] = el
                 }}
-                type="tel"
+                type="text"
+                inputMode="numeric"
                 maxLength={1}
                 value={digit}
-                onChange={(e) => handleOtpChange(index, e.target.value)}
+                onChange={(e) => handleChange(index, e.target.value)}
                 onKeyDown={(e) => handleKeyDown(index, e)}
                 onPaste={handlePaste}
-                placeholder=""
-                className="w-10 h-10 sm:w-12 sm:h-12 text-center text-lg sm:text-2xl md:text-3xl font-bold border-2 border-white border-opacity-40 rounded-lg sm:rounded-xl bg-white text-gray-900 placeholder-gray-400 focus:border-white focus:outline-none focus:border-opacity-100 focus:ring-2 focus:ring-blue-500 transition-all opacity-100"
-                style={{
-                  color: '#111827',
-                  backgroundColor: '#FFFFFF',
-                  caretColor: '#1D4ED8',
-                  WebkitTextFillColor: '#111827',
-                }}
-                autoComplete="off"
-                inputMode="numeric"
+                className="w-12 h-12 md:w-14 md:h-14 text-center text-2xl font-bold bg-white text-blue-600 rounded-lg border-2 border-white focus:outline-none focus:ring-2 focus:ring-yellow-300 focus:border-transparent transition-all"
+                placeholder="•"
               />
             ))}
           </div>
-
-          {/* Verify Button */}
-          <button
-            onClick={handleVerifyOtp}
-            disabled={isLoading || otp.some((d) => !d)}
-            className="w-full bg-white text-gray-400 font-bold text-sm sm:text-lg py-2 sm:py-3 rounded-lg sm:rounded-2xl hover:bg-gray-50 disabled:opacity-70 disabled:cursor-not-allowed transition-all mb-4 sm:mb-6"
-          >
-            {isLoading ? 'Verifying...' : 'VERIFY CODE'}
-          </button>
-
-          {/* Timer */}
-          <div className="text-center">
-            <p className="text-white text-sm sm:text-lg">
-              Code expires in{' '}
-              <span className="font-bold">{formatTime(timeLeft)}</span>
-            </p>
-          </div>
         </div>
 
-        {/* OTP Send Status - Only show if there was an error OR if successfully sent */}
-        {otpError && !otpError.includes('Too many requests') && (
-          <div className="mb-4 bg-red-500 bg-opacity-20 border border-red-400 rounded-lg p-3 flex items-start gap-2">
-            <AlertCircle className="w-4 sm:w-5 h-4 sm:h-5 text-red-300 flex-shrink-0 mt-0.5" />
-            <p className="text-red-200 text-xs sm:text-sm">{otpError}</p>
-          </div>
-        )}
-
-        {isOtpSent && !otpError && (
-          <div className="mb-4 bg-green-500 bg-opacity-20 border border-green-400 rounded-lg p-3 text-center">
-            <p className="text-green-200 text-xs sm:text-sm">Verification code sent! Check your email.</p>
-          </div>
-        )}
-
-        {/* Error Message */}
         {error && (
-          <div className="mb-4 bg-red-500 bg-opacity-20 border border-red-400 rounded-lg p-3 flex items-start gap-2">
-            <AlertCircle className="w-4 sm:w-5 h-4 sm:h-5 text-red-300 flex-shrink-0 mt-0.5" />
-            <p className="text-red-200 text-xs sm:text-sm">{error}</p>
+          <div className="mb-6 p-4 bg-red-500 bg-opacity-20 border border-red-400 rounded-lg">
+            <p className="text-red-200 text-sm text-center">{error}</p>
           </div>
         )}
 
-        {/* Success Message */}
-        {success && (
-          <div className="mb-4 bg-green-500 bg-opacity-20 border border-green-400 rounded-lg p-3 flex items-start gap-2">
-            <CheckCircle className="w-4 sm:w-5 h-4 sm:h-5 text-green-300 flex-shrink-0 mt-0.5" />
-            <p className="text-green-200 text-xs sm:text-sm">Email verified successfully!</p>
-          </div>
-        )}
+        <button
+          onClick={handleVerifyCode}
+          disabled={isLoading || code.some((d) => !d)}
+          className="w-full bg-white text-blue-600 font-bold text-base md:text-lg py-3 md:py-4 rounded-lg hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+        >
+          {isLoading ? 'Verifying...' : 'VERIFY CODE'}
+        </button>
 
-        {/* Footer */}
-        <p className="text-white text-center text-xs sm:text-sm mb-3 sm:mb-4">
-          Didn&apos;t receive the code? Check your spam folder.
+        <p className="text-center text-blue-100 text-xs md:text-sm mt-6">
+          Check your email for the 6-digit verification code
         </p>
-
-        {/* Resend OTP - CRITICAL: Disable during 60-second cooldown */}
-        {resendCooldownTime <= 0 && (
-          <button
-            onClick={handleResendOtp}
-            disabled={isSendingOtp}
-            className="w-full px-4 sm:px-6 py-2.5 sm:py-3 bg-white text-[#0000ff] font-bold text-sm sm:text-base rounded-lg sm:rounded-2xl hover:bg-gray-50 disabled:opacity-70 disabled:cursor-not-allowed transition-all"
-          >
-            {isSendingOtp ? 'Sending...' : 'Resend Code'}
-          </button>
-        )}
-        
-        {resendCooldownTime > 0 && (
-          <p className="text-white text-center text-xs sm:text-sm opacity-70 bg-white bg-opacity-10 rounded-lg p-3">
-            Resend available in {formatTime(resendCooldownTime)}
-          </p>
-        )}
       </div>
-
-      {/* BPC Notification Modal - Removed, now redirects to dashboard directly */}
-      {/* Previous modal code removed to fix redirect flow */}
     </div>
   )
 }
