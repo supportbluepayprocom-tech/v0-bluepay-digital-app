@@ -16,8 +16,11 @@ export default function VerifyEmailPage() {
   const [fullName, setFullName] = useState('')
   const [isOtpSent, setIsOtpSent] = useState(false)
   const [otpError, setOtpError] = useState('')
+  const [isSendingOtp, setIsSendingOtp] = useState(false) // CRITICAL: Prevent duplicate OTP requests
+  const [resendCooldownTime, setResendCooldownTime] = useState(0) // CRITICAL: 60-second cooldown
   const inputRefs = useRef<(HTMLInputElement | null)[]>([])
   const otpSentRef = useRef(false)
+  const cooldownTimerRef = useRef<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
     console.log('[v0] verify-email: Page mounted, checking for signup email in sessionStorage')
@@ -35,19 +38,30 @@ export default function VerifyEmailPage() {
     setEmail(storedEmail)
     setFullName(storedName || 'User')
 
-    // Auto-send OTP when user arrives from signup
-    if (!otpSentRef.current) {
-      console.log('[v0] verify-email: Triggering OTP send for:', storedEmail)
-      otpSentRef.current = true
-      sendOtpToEmail(storedEmail)
-    } else {
-      console.log('[v0] verify-email: OTP already sent, skipping')
-    }
+    // CRITICAL FIX: Do NOT auto-send OTP
+    // OTP should ONLY be sent from explicit button click on signup page
+    // User must click "CREATE ACCOUNT" which navigates here
+    // We wait for user to click "Resend Code" button if needed
+    console.log('[v0] verify-email: Page loaded - waiting for user action to send OTP')
   }, [router])
 
   const sendOtpToEmail = async (emailAddress: string) => {
+    // CRITICAL: Prevent duplicate simultaneous OTP requests
+    if (isSendingOtp) {
+      console.log('[v0] verify-email: OTP request already in progress, ignoring duplicate')
+      return
+    }
+
+    // CRITICAL: Enforce 60-second cooldown between resend attempts
+    if (resendCooldownTime > 0) {
+      console.log('[v0] verify-email: Resend cooldown active, skipping OTP request')
+      setOtpError(`Please wait ${resendCooldownTime} seconds before requesting another code.`)
+      return
+    }
+
     try {
-      console.log('[v0] verify-email: Auto-sending OTP to:', emailAddress)
+      console.log('[v0] verify-email: Sending OTP to:', emailAddress)
+      setIsSendingOtp(true) // CRITICAL: Lock while request is in progress
       setOtpError('')
       
       const response = await fetch('/api/auth/send-otp', {
@@ -61,7 +75,15 @@ export default function VerifyEmailPage() {
 
       if (!response.ok) {
         console.error('[v0] verify-email: OTP send failed:', data.error, 'Status:', response.status)
-        setOtpError(data.error || 'Failed to send verification code. Please try resending.')
+        
+        // CRITICAL: Handle rate limiting specifically
+        if (response.status === 429 || data.error?.includes('rate')) {
+          console.log('[v0] verify-email: Rate limited by Supabase')
+          setOtpError('Too many requests. Please wait 60 seconds before trying again.')
+          setResendCooldownTime(60) // CRITICAL: Apply 60-second cooldown
+        } else {
+          setOtpError(data.error || 'Failed to send verification code. Please try again.')
+        }
         setIsOtpSent(false)
         return
       }
@@ -69,10 +91,17 @@ export default function VerifyEmailPage() {
       console.log('[v0] verify-email: OTP sent successfully')
       setIsOtpSent(true)
       setOtpError('')
+      
+      // CRITICAL: Start 60-second cooldown after successful send
+      setResendCooldownTime(60)
+      setCanResend(false)
     } catch (err) {
       console.error('[v0] verify-email: OTP send error:', err)
-      setOtpError('Network error. Please try resending.')
+      setOtpError('Network error. Please try again.')
       setIsOtpSent(false)
+    } finally {
+      // CRITICAL: Always unlock the request
+      setIsSendingOtp(false)
     }
   }
 
@@ -89,6 +118,35 @@ export default function VerifyEmailPage() {
 
     return () => clearInterval(timer)
   }, [timeLeft])
+
+  // CRITICAL: 60-second cooldown timer for resend
+  useEffect(() => {
+    if (resendCooldownTime <= 0) {
+      if (cooldownTimerRef.current) {
+        clearInterval(cooldownTimerRef.current)
+        cooldownTimerRef.current = null
+      }
+      return
+    }
+
+    cooldownTimerRef.current = setInterval(() => {
+      setResendCooldownTime((prev) => {
+        const newTime = prev - 1
+        if (newTime <= 0) {
+          console.log('[v0] verify-email: 60-second cooldown expired, resend available')
+          setCanResend(true)
+        }
+        return newTime
+      })
+    }, 1000)
+
+    return () => {
+      if (cooldownTimerRef.current) {
+        clearInterval(cooldownTimerRef.current)
+        cooldownTimerRef.current = null
+      }
+    }
+  }, [resendCooldownTime])
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60)
@@ -178,12 +236,17 @@ export default function VerifyEmailPage() {
   }
 
   const handleResendOtp = async () => {
-    if (isLoading) return
+    // CRITICAL: Prevent resend during cooldown or while request is processing
+    if (isLoading || isSendingOtp || resendCooldownTime > 0) {
+      console.log('[v0] verify-email: Resend button disabled, ignoring click')
+      return
+    }
+
+    console.log('[v0] verify-email: User clicked resend OTP')
     sendOtpToEmail(email)
-    setCanResend(false)
-    setTimeLeft(300)
     setError('')
     setOtp(['', '', '', '', '', ''])
+    setTimeLeft(300) // Reset verification code expiry
   }
 
   return (
@@ -286,19 +349,20 @@ export default function VerifyEmailPage() {
           Didn&apos;t receive the code? Check your spam folder.
         </p>
 
-        {/* Resend OTP */}
-        {canResend && (
+        {/* Resend OTP - CRITICAL: Disable during 60-second cooldown */}
+        {resendCooldownTime <= 0 && (
           <button
             onClick={handleResendOtp}
-            className="w-full px-4 sm:px-6 py-2.5 sm:py-3 bg-white text-[#0000ff] font-bold text-sm sm:text-base rounded-lg sm:rounded-2xl hover:bg-gray-50 transition-all"
+            disabled={isSendingOtp}
+            className="w-full px-4 sm:px-6 py-2.5 sm:py-3 bg-white text-[#0000ff] font-bold text-sm sm:text-base rounded-lg sm:rounded-2xl hover:bg-gray-50 disabled:opacity-70 disabled:cursor-not-allowed transition-all"
           >
-            Resend Code
+            {isSendingOtp ? 'Sending...' : 'Resend Code'}
           </button>
         )}
         
-        {!canResend && (
-          <p className="text-white text-center text-xs sm:text-sm opacity-70">
-            Resend available in {formatTime(timeLeft)}
+        {resendCooldownTime > 0 && (
+          <p className="text-white text-center text-xs sm:text-sm opacity-70 bg-white bg-opacity-10 rounded-lg p-3">
+            Resend available in {formatTime(resendCooldownTime)}
           </p>
         )}
       </div>

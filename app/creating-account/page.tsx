@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Check } from 'lucide-react'
 
@@ -12,11 +12,21 @@ export default function CreatingAccountPage() {
   const [currentStep, setCurrentStep] = useState<ChecklistItem>('validating')
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
+  const otpSentRef = useRef(false) // CRITICAL: Track if we've sent OTP
 
   useEffect(() => {
     // Get data from session storage
     const name = sessionStorage.getItem('signupFullName') || ''
     const userEmail = sessionStorage.getItem('signupEmail') || ''
+    
+    console.log('[v0] creating-account: Page loaded with email:', userEmail, 'name:', name)
+    
+    if (!userEmail) {
+      console.log('[v0] creating-account: No email in sessionStorage, redirecting to signup')
+      router.push('/signup')
+      return
+    }
+    
     setFullName(name)
     setEmail(userEmail)
 
@@ -39,10 +49,17 @@ export default function CreatingAccountPage() {
 
     const generateTimer = setTimeout(() => {
       setCompleted((prev) => [...prev, 'generating'])
-      // Redirect to verification page
+      
+      // CRITICAL FIX: Send OTP ONLY after animation completes
+      // This ensures we send OTP only once, after user sees the animation
+      console.log('[v0] creating-account: Animation complete, sending OTP to:', userEmail)
+      sendOtpToEmail(userEmail)
+      
+      // Redirect to verification page after short delay
       setTimeout(() => {
+        console.log('[v0] creating-account: Redirecting to verify-email')
         router.push('/verify-email')
-      }, 500)
+      }, 800)
     }, timings.validating + timings.encrypting + timings.generating)
 
     return () => {
@@ -51,6 +68,44 @@ export default function CreatingAccountPage() {
       clearTimeout(generateTimer)
     }
   }, [router])
+
+  // CRITICAL FIX: Send OTP from this page (not from verify-email page)
+  const sendOtpToEmail = async (emailAddress: string) => {
+    // Prevent duplicate OTP sends
+    if (otpSentRef.current) {
+      console.log('[v0] creating-account: OTP already sent, skipping')
+      return
+    }
+    
+    otpSentRef.current = true
+
+    try {
+      console.log('[v0] creating-account: Sending OTP to:', emailAddress)
+      
+      const response = await fetch('/api/auth/send-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: emailAddress }),
+      })
+
+      const data = await response.json()
+      console.log('[v0] creating-account: OTP response status:', response.status, 'data:', data)
+
+      if (!response.ok) {
+        console.error('[v0] creating-account: OTP send failed:', data.error, 'Status:', response.status)
+        // Store error in sessionStorage for verify-email page to display
+        sessionStorage.setItem('otpError', data.error || 'Failed to send OTP')
+        return
+      }
+
+      console.log('[v0] creating-account: OTP sent successfully')
+      // Clear any previous errors
+      sessionStorage.removeItem('otpError')
+    } catch (err) {
+      console.error('[v0] creating-account: OTP send error:', err)
+      sessionStorage.setItem('otpError', 'Network error. Failed to send OTP.')
+    }
+  }
 
   const steps = [
     { id: 'validating', label: 'Validating information' },
