@@ -10,14 +10,20 @@ export default function CreatingAccountPage() {
   const router = useRouter()
   const [completed, setCompleted] = useState<ChecklistItem[]>([])
   const [currentStep, setCurrentStep] = useState<ChecklistItem>('validating')
-  const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
 
   useEffect(() => {
     // Get data from session storage
-    const name = sessionStorage.getItem('signupFullName') || ''
     const userEmail = sessionStorage.getItem('signupEmail') || ''
-    setFullName(name)
+    
+    console.log('[v0] creating-account: Page loaded with email:', userEmail)
+    
+    if (!userEmail) {
+      console.log('[v0] creating-account: No email in sessionStorage, redirecting to signup')
+      router.push('/signup')
+      return
+    }
+    
     setEmail(userEmail)
 
     // Animation sequence
@@ -39,10 +45,14 @@ export default function CreatingAccountPage() {
 
     const generateTimer = setTimeout(() => {
       setCompleted((prev) => [...prev, 'generating'])
-      // Redirect to verification page
+      
+      // Just redirect to verify-email, no OTP sending
+      console.log('[v0] creating-account: Animation complete, redirecting to verify-email')
+      
       setTimeout(() => {
+        console.log('[v0] creating-account: Redirecting to verify-email')
         router.push('/verify-email')
-      }, 500)
+      }, 800)
     }, timings.validating + timings.encrypting + timings.generating)
 
     return () => {

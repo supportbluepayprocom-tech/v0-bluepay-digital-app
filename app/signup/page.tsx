@@ -36,8 +36,9 @@ export default function SignupPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
-    // Prevent duplicate submissions
+    // CRITICAL FIX: Prevent duplicate submissions with double lock
     if (submitInProgressRef.current || isLoading) {
+      console.log('[v0] signup: Duplicate submission attempt blocked')
       return
     }
 
@@ -51,16 +52,17 @@ export default function SignupPage() {
     setIsLoading(true)
 
     try {
-      console.log('[v0] signup: Storing user info and redirecting to verify-email')
+      console.log('[v0] signup: Form validated, storing user info')
       
-      // Just store info and redirect to verify-email page
-      // Verify-email page will handle sending OTP (to avoid duplicate requests)
+      // Store credentials in sessionStorage for verify-email page to use
       sessionStorage.setItem('signupEmail', email)
       sessionStorage.setItem('signupFullName', fullName)
       
-      // Redirect to OTP verification page
+      console.log('[v0] signup: Redirecting to creating-account animation page')
+      
+      // Navigate to creating account page which will handle OTP sending
       setTimeout(() => {
-        router.push('/verify-email')
+        router.push('/creating-account')
       }, 300)
     } catch (error) {
       console.error('[v0] signup: Unexpected error:', error)

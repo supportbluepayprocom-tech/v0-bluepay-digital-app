@@ -27,12 +27,17 @@ const config = {
       animation: {
         'pulse-soft': 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
         'slide-left': 'slideLeft 20s linear infinite',
+        'lion-slide': 'lionSlide 15s linear infinite',
         'fingerprint-scan': 'fingerprintScan 2s ease-in-out infinite',
         'glow': 'glow 2s ease-in-out infinite',
       },
       keyframes: {
         slideLeft: {
           '0%': { transform: 'translateX(100%)' },
+          '100%': { transform: 'translateX(-100%)' },
+        },
+        lionSlide: {
+          '0%': { transform: 'translateX(0)' },
           '100%': { transform: 'translateX(-100%)' },
         },
         fingerprintScan: {
