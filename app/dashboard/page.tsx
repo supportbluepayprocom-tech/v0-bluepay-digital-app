@@ -36,6 +36,7 @@ import { getTimeBasedGreeting } from '@/lib/lib/greeting'
 import BPCNotificationModal from '@/components/BPCNotificationModal'
 import MaxBalanceNotification from '@/components/MaxBalanceNotification'
 import BPCSecurityNotification from '@/components/BPCSecurityNotification'
+import AnimatedUserName from '@/components/AnimatedUserName'
 import { MAX_BALANCE, formatNGN } from '@/lib/constants'
 
 export default function DashboardPage() {
@@ -447,9 +448,9 @@ export default function DashboardPage() {
                     </div>
                   )}
                 </label>
-                <div>
-                  <p className="text-gray-500 text-xs">{greeting}</p>
-                  <h2 className="text-base font-bold text-gray-900">{fullName}</h2>
+                <div className="flex-1">
+                  <p className="text-gray-500 text-xs mb-1">{greeting}</p>
+                  <AnimatedUserName name={fullName} className="text-lg" />
                 </div>
               </div>
               <button
