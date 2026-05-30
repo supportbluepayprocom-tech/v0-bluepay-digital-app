@@ -4,7 +4,8 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, CheckCircle, Gift, Zap, Star, Trophy } from 'lucide-react'
 import { createClient } from '@supabase/supabase-js'
-import { getBalance, addBalance, addTransaction } from '@/lib/balance-store'
+import { getBalance, addBalance, addTransaction, isEarningsPaused } from '@/lib/balance-store'
+import { MAX_BALANCE, EARNINGS_PAUSED_MESSAGE } from '@/lib/constants'
 
 export default function EarnMorePage() {
   const router = useRouter()
@@ -14,14 +15,33 @@ export default function EarnMorePage() {
   const [mounted, setMounted] = useState(false)
   const [userId, setUserId] = useState('')
   const [claimingTaskId, setClaimingTaskId] = useState<number | null>(null)
+  const [earningsPaused, setEarningsPaused] = useState(false)
 
   useEffect(() => {
     setMounted(true)
     loadProfileBalance()
     
     // Load balance from unified store
-    setBalance(getBalance())
-    const handleBalanceChange = () => setBalance(getBalance())
+    const currentBalance = getBalance()
+    setBalance(currentBalance)
+    
+    // Check if earnings are paused
+    if (currentBalance >= MAX_BALANCE) {
+      setEarningsPaused(true)
+    } else {
+      setEarningsPaused(isEarningsPaused())
+    }
+    
+    const handleBalanceChange = () => {
+      const newBalance = getBalance()
+      setBalance(newBalance)
+      // Re-check earnings paused status when balance changes
+      if (newBalance >= MAX_BALANCE) {
+        setEarningsPaused(true)
+      } else {
+        setEarningsPaused(isEarningsPaused())
+      }
+    }
     window.addEventListener('balanceChange', handleBalanceChange)
     
     return () => window.removeEventListener('balanceChange', handleBalanceChange)
@@ -58,6 +78,12 @@ export default function EarnMorePage() {
   const handleCompleteTask = async (taskId: number) => {
     if (completedTasks.includes(taskId)) return
     if (claimingTaskId) return
+    
+    // Check if balance is at max or earnings are paused
+    if (balance >= MAX_BALANCE || earningsPaused) {
+      alert(EARNINGS_PAUSED_MESSAGE)
+      return
+    }
 
     const task = tasks.find(t => t.id === taskId)
     if (!task) return
@@ -72,11 +98,25 @@ export default function EarnMorePage() {
       
       console.log('[v0] Claiming reward:', { taskId, reward: task.reward, userId })
 
+      // Check again before adding balance (backend validation)
+      const currentBalance = getBalance()
+      if (currentBalance + task.reward > MAX_BALANCE) {
+        setEarningsPaused(true)
+        alert('Cannot claim reward - would exceed maximum balance. Complete a transaction to continue earning.')
+        return
+      }
+
       // Update demo balance in unified store
-      const newBalance = addBalance(task.reward)
+      const result = addBalance(task.reward)
+      const newBalance = typeof result === 'object' ? result.newBalance : result
       setBalance(newBalance)
       setCompletedTasks([...completedTasks, taskId])
       setTotalEarnings(totalEarnings + task.reward)
+
+      // Update earnings paused status if at max
+      if (newBalance >= MAX_BALANCE) {
+        setEarningsPaused(true)
+      }
 
       // Add transaction to unified store
       addTransaction({
@@ -165,16 +205,19 @@ export default function EarnMorePage() {
                   <p className="text-sm font-bold text-[#0000ff]">+₦{task.reward}</p>
                   <button
                     onClick={() => handleCompleteTask(task.id)}
-                    disabled={isCompleted || claimingTaskId === task.id}
+                    disabled={isCompleted || claimingTaskId === task.id || earningsPaused}
                     className={`px-2.5 py-1 rounded text-xs font-semibold transition ${
                       isCompleted
                         ? 'bg-gray-200 text-gray-500'
-                        : claimingTaskId === task.id
-                          ? 'bg-[#0000ff]/70 text-white'
-                          : 'bg-[#0000ff] text-white hover:opacity-90'
+                        : earningsPaused
+                          ? 'bg-gray-300 text-gray-600 cursor-not-allowed'
+                          : claimingTaskId === task.id
+                            ? 'bg-[#0000ff]/70 text-white'
+                            : 'bg-[#0000ff] text-white hover:opacity-90'
                     }`}
+                    title={earningsPaused ? EARNINGS_PAUSED_MESSAGE : ''}
                   >
-                    {isCompleted ? '✓' : claimingTaskId === task.id ? 'Claiming...' : 'Claim'}
+                    {isCompleted ? '✓' : earningsPaused ? 'Paused' : claimingTaskId === task.id ? 'Claiming...' : 'Claim'}
                   </button>
                 </div>
               </div>

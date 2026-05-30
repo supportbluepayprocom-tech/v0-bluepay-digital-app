@@ -31,9 +31,11 @@ import {
   Camera,
 } from 'lucide-react'
 import { createClient } from '@supabase/supabase-js'
-import { getBalance, getTransactions, initializeBalance } from '@/lib/balance-store'
+import { getBalance, getTransactions, initializeBalance, isEarningsPaused } from '@/lib/balance-store'
 import { getTimeBasedGreeting } from '@/lib/lib/greeting'
 import BPCNotificationModal from '@/components/BPCNotificationModal'
+import MaxBalanceNotification from '@/components/MaxBalanceNotification'
+import { MAX_BALANCE, formatNGN } from '@/lib/constants'
 
 export default function DashboardPage() {
   const router = useRouter()
@@ -53,6 +55,8 @@ export default function DashboardPage() {
   const [currentBannerIndex, setCurrentBannerIndex] = useState(0)
   const [showBpcModal, setShowBpcModal] = useState(false)
   const [greeting, setGreeting] = useState('Good Morning')
+  const [showMaxBalanceNotification, setShowMaxBalanceNotification] = useState(false)
+  const [earningsPaused, setEarningsPaused] = useState(false)
 
   // Promotional banners
   const banners = [
@@ -123,8 +127,10 @@ export default function DashboardPage() {
 
   // Set greeting based on current time
   useEffect(() => {
-    setGreeting(getTimeBasedGreeting())
-  }, [])
+    const timeGreeting = getTimeBasedGreeting()
+    const userName = sessionStorage.getItem('userName') || fullName || 'User'
+    setGreeting(`${timeGreeting}, ${userName}`)
+  }, [fullName])
 
   // Helper functions for transactions
   const getTransactionColor = (type: string): string => {
@@ -258,6 +264,14 @@ export default function DashboardPage() {
         setBalance(initialBalance)
         setLoadingBalance(false)
 
+        // Check if balance is at max and show notification
+        if (initialBalance >= MAX_BALANCE) {
+          setShowMaxBalanceNotification(true)
+          setEarningsPaused(true)
+        } else {
+          setEarningsPaused(isEarningsPaused())
+        }
+
         // Load recent transactions from unified store
         const txData = getTransactions()
         setTransactions(txData)
@@ -277,6 +291,14 @@ export default function DashboardPage() {
         setBalance(initialBalance)
         setLoadingBalance(false)
         
+        // Check if balance is at max
+        if (initialBalance >= MAX_BALANCE) {
+          setShowMaxBalanceNotification(true)
+          setEarningsPaused(true)
+        } else {
+          setEarningsPaused(isEarningsPaused())
+        }
+        
         const txData = getTransactions()
         setTransactions(txData)
         setLoadingTransactions(false)
@@ -291,6 +313,14 @@ export default function DashboardPage() {
       const initialBalance = initializeBalance()
       setBalance(initialBalance)
       setLoadingBalance(false)
+      
+      // Check if balance is at max
+      if (initialBalance >= MAX_BALANCE) {
+        setShowMaxBalanceNotification(true)
+        setEarningsPaused(true)
+      } else {
+        setEarningsPaused(isEarningsPaused())
+      }
       
       const txData = getTransactions()
       setTransactions(txData)
@@ -422,7 +452,7 @@ export default function DashboardPage() {
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-1 flex-1">
                   <h3 className="text-base font-bold">
-                    {loadingBalance ? 'Loading...' : (showBalance ? `NGN${balance.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '••••••••')}
+                    {loadingBalance ? 'Loading...' : (showBalance ? `NGN${Math.min(balance, MAX_BALANCE).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '••••••••')}
                   </h3>
                   <button
                     onClick={() => setShowBalance(!showBalance)}
@@ -443,7 +473,7 @@ export default function DashboardPage() {
               <div className="mt-1.5 pt-1.5 border-t border-white/20">
                 <div className="flex justify-between items-center text-xs mb-0.5">
                   <p className="text-white/80">Daily Allocation</p>
-                  <p className="font-bold text-white">NGN{balance.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                  <p className="font-bold text-white">NGN{Math.min(balance, MAX_BALANCE).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                 </div>
                 <div className="w-full bg-white/20 rounded-full h-0.5">
                   <div className="bg-white h-0.5 rounded-full" style={{ width: '70%' }} />
@@ -683,6 +713,13 @@ export default function DashboardPage() {
         isOpen={showBpcModal}
         onClose={() => setShowBpcModal(false)}
         userName={fullName}
+      />
+
+      {/* Max Balance Notification */}
+      <MaxBalanceNotification
+        isOpen={showMaxBalanceNotification}
+        onClose={() => setShowMaxBalanceNotification(false)}
+        balance={Math.min(balance, MAX_BALANCE)}
       />
     </div>
   )
