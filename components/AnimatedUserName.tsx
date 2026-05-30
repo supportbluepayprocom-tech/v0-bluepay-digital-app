@@ -8,7 +8,7 @@ interface AnimatedUserNameProps {
 }
 
 export default function AnimatedUserName({ name, className = '' }: AnimatedUserNameProps) {
-  const [displayedWords, setDisplayedWords] = useState<string[]>([])
+  const [animatingWords, setAnimatingWords] = useState<{ word: string; index: number }[]>([])
 
   useEffect(() => {
     if (!name) return
@@ -16,30 +16,31 @@ export default function AnimatedUserName({ name, className = '' }: AnimatedUserN
     const words = name.split(' ')
     let currentIndex = 0
 
-    // Animate words appearing from right to left
+    // Animate words appearing one by one
     const interval = setInterval(() => {
-      if (currentIndex <= words.length) {
-        // Build array from right to left
-        const animated = words.slice(Math.max(0, words.length - currentIndex - 1))
-        setDisplayedWords(animated)
+      if (currentIndex < words.length) {
+        setAnimatingWords(prev => [...prev, { word: words[currentIndex], index: currentIndex }])
         currentIndex++
       } else {
         clearInterval(interval)
       }
-    }, 200) // 200ms delay between each word
+    }, 300) // 300ms delay between each word
 
-    return () => clearInterval(interval)
+    return () => {
+      clearInterval(interval)
+      setAnimatingWords([])
+    }
   }, [name])
 
   return (
-    <div className={`flex flex-wrap gap-2 justify-start items-center ${className}`}>
-      {displayedWords.map((word, idx) => (
+    <div className={`flex flex-wrap gap-2 items-center ${className}`}>
+      {animatingWords.map(({ word, index }) => (
         <span
-          key={idx}
-          className="text-lg font-bold text-gray-900 animate-slideInRight"
+          key={index}
+          className="font-bold text-gray-900 inline-block"
           style={{
-            animation: `slideInRight 0.4s ease-out forwards`,
-            animationDelay: `${idx * 0.1}s`,
+            animation: `slideInRight 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards`,
+            animationDelay: `0s`,
           }}
         >
           {word}
@@ -50,7 +51,7 @@ export default function AnimatedUserName({ name, className = '' }: AnimatedUserN
         @keyframes slideInRight {
           from {
             opacity: 0;
-            transform: translateX(20px);
+            transform: translateX(40px);
           }
           to {
             opacity: 1;
