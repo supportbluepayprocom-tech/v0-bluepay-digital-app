@@ -131,7 +131,7 @@ export default function DashboardPage() {
   // Set greeting based on current time
   useEffect(() => {
     const timeGreeting = getTimeBasedGreeting()
-    const userName = sessionStorage.getItem('userName') || fullName || 'User'
+    const userName = fullName || localStorage.getItem('userName') || localStorage.getItem('signupFullName') || 'User'
     setGreeting(`${timeGreeting}, ${userName}`)
   }, [fullName])
 
@@ -204,35 +204,17 @@ export default function DashboardPage() {
 
   const handleProfileImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
-    if (!file || !userId) return
+    if (!file) return
 
     setIsUploadingProfile(true)
     try {
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      )
-
-      // Upload to storage
-      const filename = `profile-${userId}-${Date.now()}.jpg`
-      const { data, error } = await supabase.storage
-        .from('profile-images')
-        .upload(filename, file)
-
-      if (error) throw error
-
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('profile-images')
-        .getPublicUrl(filename)
-
-      setProfileImage(publicUrl)
-
-      // Update profile
-      await supabase
-        .from('profiles')
-        .update({ profile_image_url: publicUrl })
-        .eq('id', userId)
+      const reader = new FileReader()
+      reader.onload = (event) => {
+        const imageData = event.target?.result as string
+        setProfileImage(imageData)
+        localStorage.setItem('userProfileImage', imageData)
+      }
+      reader.readAsDataURL(file)
     } catch (err) {
       console.error('[v0] Error uploading profile image:', err)
     } finally {
@@ -250,26 +232,99 @@ export default function DashboardPage() {
 
   async function loadUserData() {
     try {
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      )
-      const { data: { session } } = await supabase.auth.getSession()
+      // Load user from local auth
+      const user = getCurrentUser()
 
-      if (session?.user) {
-        setUserId(session.user.id)
-        setUserEmail(session.user.email || '')
+      if (user) {
+        setUserId(user.id)
+        setUserEmail(user.email)
+        setFullName(user.fullName)
+        
+        // Save name to localStorage for persistence
+        localStorage.setItem('userName', user.fullName)
 
-        // Fetch user profile
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('full_name, profile_image_url')
-          .eq('id', session.user.id)
-          .single()
-
-        if (profile?.full_name) {
-          setFullName(profile.full_name)
+        // Load profile image if available
+        const storedImage = localStorage.getItem('userProfileImage')
+        if (storedImage) {
+          setProfileImage(storedImage)
         }
+
+        // Load balance from unified store
+        const initialBalance = initializeBalance()
+        setBalance(initialBalance)
+        setLoadingBalance(false)
+
+        // Check if balance is at max and show notification
+        if (initialBalance >= MAX_BALANCE) {
+          setShowMaxBalanceNotification(true)
+          setEarningsPaused(true)
+        } else {
+          setEarningsPaused(isEarningsPaused())
+        }
+
+        // Load recent transactions from unified store
+        const txData = getTransactions()
+        setTransactions(txData)
+        setLoadingTransactions(false)
+      } else {
+        // Fallback to localStorage if user not found in current session
+        const storedName = localStorage.getItem('userName') || localStorage.getItem('signupFullName')
+        const storedEmail = localStorage.getItem('userEmail') || localStorage.getItem('signupEmail')
+        if (storedName) {
+          setFullName(storedName)
+        }
+        if (storedEmail) {
+          setUserEmail(storedEmail)
+        }
+        
+        const storedImage = localStorage.getItem('userProfileImage')
+        if (storedImage) {
+          setProfileImage(storedImage)
+        }
+        
+        const initialBalance = initializeBalance()
+        setBalance(initialBalance)
+        setLoadingBalance(false)
+        
+        // Check if balance is at max
+        if (initialBalance >= MAX_BALANCE) {
+          setShowMaxBalanceNotification(true)
+          setEarningsPaused(true)
+        } else {
+          setEarningsPaused(isEarningsPaused())
+        }
+        
+        const txData = getTransactions()
+        setTransactions(txData)
+        setLoadingTransactions(false)
+      }
+    } catch (err) {
+      console.error('[v0] Error loading user data:', err)
+      const storedName = localStorage.getItem('userName') || localStorage.getItem('signupFullName')
+      const storedEmail = localStorage.getItem('userEmail') || localStorage.getItem('signupEmail')
+      if (storedName) {
+        setFullName(storedName)
+      }
+      if (storedEmail) {
+        setUserEmail(storedEmail)
+      }
+      
+      const storedImage = localStorage.getItem('userProfileImage')
+      if (storedImage) {
+        setProfileImage(storedImage)
+      }
+      
+      const initialBalance = initializeBalance()
+      setBalance(initialBalance)
+      setLoadingBalance(false)
+      
+      // Check if balance is at max
+      if (initialBalance >= MAX_BALANCE) {
+        setShowMaxBalanceNotification(true)
+        setEarningsPaused(true)
+      } else {
+        setEarningsPaused(isEarningsPaused())
+      }
         if (profile?.profile_image_url) {
           setProfileImage(profile.profile_image_url)
         }
