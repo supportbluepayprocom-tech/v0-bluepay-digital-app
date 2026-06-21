@@ -3,7 +3,7 @@
 import { useState, useRef, ChangeEvent, FormEvent } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, Lock, Fingerprint, Camera, Upload, Check, AlertCircle, Loader } from 'lucide-react'
-import { createClient } from '@supabase/supabase-js'
+import { getCurrentUser, saveFingerprintSettings, updateUserProfile } from '@/lib/auth-local'
 
 export default function SetupSecurityPage() {
   const router = useRouter()
@@ -55,35 +55,17 @@ export default function SetupSecurityPage() {
       console.log('[v0] Fingerprint: Verifying identity...')
       await new Promise((resolve) => setTimeout(resolve, 1500))
       
-      // Phase 3: Get user ID and save fingerprint authentication
-      try {
-        const supabase = createClient(
-          process.env.NEXT_PUBLIC_SUPABASE_URL!,
-          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-        )
-        
-        const { data: { session } } = await supabase.auth.getSession()
-        if (session?.user?.id) {
-          // Save fingerprint authentication status to profile
-          const { error: updateError } = await supabase
-            .from('profiles')
-            .update({
-              fingerprint_enabled: true,
-              fingerprint_pin: pinConfirmation || pinForFingerprint,
-              fingerprint_verified_at: new Date().toISOString(),
-            })
-            .eq('id', session.user.id)
-          
-          if (updateError) {
-            console.warn('[v0] Fingerprint save warning:', updateError)
-            // Continue with success even if DB save fails
-          }
+      // Phase 3: Save fingerprint authentication to localStorage
+      const user = getCurrentUser()
+      if (user) {
+        const saved = saveFingerprintSettings(user.id, true, pinConfirmation || pinForFingerprint)
+        if (saved) {
+          console.log('[v0] Fingerprint: Settings saved locally')
         } else {
-          console.warn('[v0] Fingerprint: No active session - skipping DB save')
+          console.warn('[v0] Fingerprint: Failed to save settings locally')
         }
-      } catch (dbErr) {
-        console.warn('[v0] Fingerprint DB error - continuing:', dbErr)
-        // Continue with success even if Supabase operations fail
+      } else {
+        console.warn('[v0] Fingerprint: No active user session')
       }
       
       // Phase 4: Success
@@ -153,34 +135,24 @@ export default function SetupSecurityPage() {
     setError('')
 
     try {
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      )
-
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session?.user?.id) {
-        throw new Error('No active session found')
+      const user = getCurrentUser()
+      if (!user) {
+        throw new Error('No active user found')
       }
 
       // Save PIN if it was created
       if (pinForFingerprint) {
-        await supabase
-          .from('profiles')
-          .update({
-            security_pin: pinForFingerprint,
-            pin_set_at: new Date().toISOString(),
-          })
-          .eq('id', session.user.id)
+        updateUserProfile(user.id, { pin: pinForFingerprint })
       }
 
-      // Upload profile picture if provided
-      if (profileImage && !profileImage.startsWith('blob:')) {
-        console.log('[v0] Profile picture saved')
+      // Save profile image if provided
+      if (profileImage) {
+        localStorage.setItem('userProfileImage', profileImage)
+        console.log('[v0] Profile picture saved locally')
       }
 
-      sessionStorage.removeItem('signupEmail')
-      sessionStorage.removeItem('signupName')
+      localStorage.removeItem('signupEmail')
+      localStorage.removeItem('signupFullName')
       router.push('/dashboard')
     } catch (err) {
       console.error('[v0] Profile setup error:', err)
@@ -195,37 +167,18 @@ export default function SetupSecurityPage() {
     setError('')
 
     try {
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      )
-
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session?.user?.id) {
-        throw new Error('No active session found')
+      const user = getCurrentUser()
+      if (!user) {
+        throw new Error('No active user found')
       }
 
       // Save PIN if it was created but not saved yet
       if (pinForFingerprint) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('security_pin')
-          .eq('id', session.user.id)
-          .single()
-
-        if (!profile?.security_pin) {
-          await supabase
-            .from('profiles')
-            .update({
-              security_pin: pinForFingerprint,
-              pin_set_at: new Date().toISOString(),
-            })
-            .eq('id', session.user.id)
-        }
+        updateUserProfile(user.id, { pin: pinForFingerprint })
       }
 
-      sessionStorage.removeItem('signupEmail')
-      sessionStorage.removeItem('signupName')
+      localStorage.removeItem('signupEmail')
+      localStorage.removeItem('signupFullName')
       console.log('[v0] Setup complete - redirecting to dashboard')
       router.push('/dashboard')
     } catch (err) {

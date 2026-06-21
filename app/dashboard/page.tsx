@@ -30,7 +30,7 @@ import {
   MessageSquare,
   Camera,
 } from 'lucide-react'
-import { createClient } from '@supabase/supabase-js'
+import { getCurrentUser, logoutUser } from '@/lib/auth-local'
 import { getBalance, getTransactions, getFinancialTransactions, initializeBalance, isEarningsPaused } from '@/lib/balance-store'
 import { getTimeBasedGreeting } from '@/lib/lib/greeting'
 import BPCNotificationModal from '@/components/BPCNotificationModal'
@@ -378,27 +378,22 @@ export default function DashboardPage() {
     }
   }, [])
 
-  const handleLogout = async () => {
+  const handleLogout = () => {
     try {
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      )
+      // Clear session from localStorage
+      logoutUser()
       
-      // Sign out from Supabase
-      await supabase.auth.signOut()
+      // Clear other user-related data
+      localStorage.removeItem('userProfileImage')
       
-      // Clear all session and local storage
-      sessionStorage.clear()
-      localStorage.clear()
+      console.log('[v0] User logged out successfully')
       
       // Redirect to signup page
       router.push('/signup')
     } catch (err) {
       console.error('[v0] Error logging out:', err)
       // Force redirect even if logout fails
-      sessionStorage.clear()
-      localStorage.clear()
+      logoutUser()
       router.push('/signup')
     }
   }

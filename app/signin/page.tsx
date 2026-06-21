@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import { validateEmail } from '@/lib/utils'
-import { createClient } from '@supabase/supabase-js'
+import { loginUser } from '@/lib/auth-local'
 
 export default function SigninPage() {
   const router = useRouter()
@@ -60,49 +60,26 @@ export default function SigninPage() {
     try {
       console.log('[v0] signin: Authenticating with email:', email)
       
-      // Create Supabase client
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      )
+      // Attempt to login using localStorage
+      const user = loginUser(email, password)
 
-      // Attempt to sign in with email and password (PIN)
-      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-        email: email,
-        password: password, // Using PIN as password
-      })
-
-      if (signInError) {
-        console.error('[v0] signin: Authentication failed:', signInError)
-        setGeneralError(signInError.message || 'Invalid email or PIN. Please try again.')
+      if (!user) {
+        console.error('[v0] signin: Authentication failed for:', email)
+        setGeneralError('Invalid email or PIN. Please try again.')
         submitInProgressRef.current = false
         setIsLoading(false)
         return
       }
 
-      if (signInData.user) {
-        console.log('[v0] signin: User authenticated successfully:', signInData.user.email)
-        
-        // Get user profile
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('full_name, profile_image_url')
-          .eq('id', signInData.user.id)
-          .single()
-
-        if (profile?.full_name) {
-          sessionStorage.setItem('userName', profile.full_name)
-        }
-        
-        setSuccessMessage('Sign in successful! Redirecting to dashboard...')
-        
-        setTimeout(() => {
-          router.push('/dashboard')
-        }, 800)
-      }
+      console.log('[v0] signin: User authenticated successfully:', user.email)
+      setSuccessMessage('Sign in successful! Redirecting to dashboard...')
+      
+      setTimeout(() => {
+        router.push('/dashboard')
+      }, 800)
     } catch (error) {
       console.error('[v0] signin: Unexpected error:', error)
-      setGeneralError('Network error. Please try again.')
+      setGeneralError('An error occurred. Please try again.')
       submitInProgressRef.current = false
       setIsLoading(false)
     }

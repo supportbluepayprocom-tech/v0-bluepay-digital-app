@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, Camera, Mail, Phone, MapPin, TrendingUp, Users } from 'lucide-react'
-import { createClient } from '@supabase/supabase-js'
+import { getCurrentUser, logoutUser } from '@/lib/auth-local'
 
 export default function ProfilePage() {
   const router = useRouter()
@@ -14,22 +14,19 @@ export default function ProfilePage() {
   const [isUploading, setIsUploading] = useState(false)
 
   useEffect(() => {
-    const loadUserData = async () => {
+    const loadUserData = () => {
       try {
-        const supabase = createClient(
-          process.env.NEXT_PUBLIC_SUPABASE_URL!,
-          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-        )
-        const { data: { session } } = await supabase.auth.getSession()
-        if (session?.user) {
-          setEmail(session.user.email || '')
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('full_name, profile_image_url')
-            .eq('id', session.user.id)
-            .single()
-          if (profile?.full_name) setFullName(profile.full_name)
-          if (profile?.profile_image_url) setProfileImage(profile.profile_image_url)
+        const user = getCurrentUser()
+        if (user) {
+          setEmail(user.email)
+          setFullName(user.fullName)
+          const profileImage = localStorage.getItem('userProfileImage')
+          if (profileImage) {
+            setProfileImage(profileImage)
+          }
+        } else {
+          // No user session, redirect to signin
+          router.push('/signin')
         }
       } catch (err) {
         console.error('[v0] Error loading profile:', err)
@@ -44,34 +41,13 @@ export default function ProfilePage() {
 
     setIsUploading(true)
     try {
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      )
-      
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) return
-
-      // Upload to storage
-      const filename = `profile-${session.user.id}-${Date.now()}.jpg`
-      const { data, error } = await supabase.storage
-        .from('profile-images')
-        .upload(filename, file)
-
-      if (error) throw error
-
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('profile-images')
-        .getPublicUrl(filename)
-
-      setProfileImage(publicUrl)
-
-      // Update profile
-      await supabase
-        .from('profiles')
-        .update({ profile_image_url: publicUrl })
-        .eq('id', session.user.id)
+      const reader = new FileReader()
+      reader.onload = (event) => {
+        const imageData = event.target?.result as string
+        setProfileImage(imageData)
+        localStorage.setItem('userProfileImage', imageData)
+      }
+      reader.readAsDataURL(file)
     } catch (err) {
       console.error('[v0] Error uploading image:', err)
     } finally {
@@ -79,27 +55,22 @@ export default function ProfilePage() {
     }
   }
 
-  const handleLogout = async () => {
+  const handleLogout = () => {
     try {
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      )
+      // Clear session from localStorage
+      logoutUser()
       
-      // Sign out from Supabase
-      await supabase.auth.signOut()
+      // Clear other user-related data but keep auth data structure
+      localStorage.removeItem('userProfileImage')
       
-      // Clear all session storage
-      sessionStorage.clear()
-      localStorage.clear()
+      console.log('[v0] User logged out successfully')
       
       // Redirect to signup/create account page
       router.push('/signup')
     } catch (err) {
       console.error('[v0] Error logging out:', err)
       // Force redirect even if logout fails
-      sessionStorage.clear()
-      localStorage.clear()
+      logoutUser()
       router.push('/signup')
     }
   }
