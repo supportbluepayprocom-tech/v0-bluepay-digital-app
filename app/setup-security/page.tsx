@@ -13,6 +13,7 @@ export default function SetupSecurityPage() {
   const [profileImage, setProfileImage] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
+  const [successMessage, setSuccessMessage] = useState('')
   const [pinConfirmation, setPinConfirmation] = useState('')
   const [showPinMatches, setShowPinMatches] = useState(false)
   const [isScanningFingerprint, setIsScanningFingerprint] = useState(false)
@@ -129,31 +130,20 @@ export default function SetupSecurityPage() {
     setStep('profile')
   }
 
-  const handleProfileSetup = async (e: FormEvent) => {
+  const handleProfileSetup = (e: FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
     setError('')
 
     try {
-      const user = getCurrentUser()
-      if (!user) {
-        throw new Error('No active user found')
-      }
-
-      // Save PIN if it was created
-      if (pinForFingerprint) {
-        updateUserProfile(user.id, { pin: pinForFingerprint })
-      }
-
-      // Save profile image if provided
+      // Save profile image if provided (optional)
       if (profileImage) {
         localStorage.setItem('userProfileImage', profileImage)
         console.log('[v0] Profile picture saved locally')
       }
 
-      localStorage.removeItem('signupEmail')
-      localStorage.removeItem('signupFullName')
-      router.push('/dashboard')
+      console.log('[v0] Profile setup completed')
+      setStep('options')
     } catch (err) {
       console.error('[v0] Profile setup error:', err)
       setError('Failed to setup profile')
@@ -168,22 +158,36 @@ export default function SetupSecurityPage() {
 
     try {
       const user = getCurrentUser()
-      if (!user) {
-        throw new Error('No active user found')
-      }
-
+      
       // Save PIN if it was created but not saved yet
-      if (pinForFingerprint) {
+      if (user && pinForFingerprint) {
         updateUserProfile(user.id, { pin: pinForFingerprint })
+        console.log('[v0] PIN saved for user')
       }
 
+      // Save profile image if provided (optional)
+      if (profileImage) {
+        localStorage.setItem('userProfileImage', profileImage)
+        console.log('[v0] Profile picture saved locally')
+      }
+
+      // Clean up temporary signup data
       localStorage.removeItem('signupEmail')
       localStorage.removeItem('signupFullName')
-      console.log('[v0] Setup complete - redirecting to dashboard')
-      router.push('/dashboard')
+      localStorage.removeItem('verified')
+      localStorage.removeItem('verificationPin')
+
+      console.log('[v0] Setup complete - showing success message')
+      
+      // Show success message briefly before redirect
+      setSuccessMessage('Profile Setup Completed Successfully')
+      
+      setTimeout(() => {
+        router.push('/dashboard')
+      }, 1500)
     } catch (err) {
       console.error('[v0] Finish setup error:', err)
-      setError('Failed to complete setup')
+      setError('Failed to complete setup. Please try again.')
     } finally {
       setIsLoading(false)
     }
@@ -521,7 +525,7 @@ export default function SetupSecurityPage() {
               </div>
 
               <form onSubmit={handleProfileSetup} className="space-y-6">
-                {/* Profile Picture Upload */}
+                {/* Profile Picture Upload - Optional */}
                 <div className="flex flex-col items-center">
                   {profileImage ? (
                     <div className="relative mb-4">
@@ -539,7 +543,7 @@ export default function SetupSecurityPage() {
                       </button>
                     </div>
                   ) : (
-                    <div className="w-32 h-32 bg-white/10 rounded-full flex items-center justify-center mb-4 border-2 border-dashed border-white/30">
+                    <div className="w-32 h-32 bg-white/10 rounded-full flex items-center justify-center mb-4 border-2 border-dashed border-white/30 hover:bg-white/15 transition cursor-pointer">
                       <Upload className="w-8 h-8 text-white/60" />
                     </div>
                   )}
@@ -555,16 +559,24 @@ export default function SetupSecurityPage() {
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="text-white hover:text-white/80 font-semibold text-sm"
+                    className="text-white hover:text-white/80 font-semibold text-sm mb-2"
                   >
-                    {profileImage ? 'Change Photo' : 'Upload Photo'}
+                    {profileImage ? 'Change Photo' : 'Upload Photo (Optional)'}
                   </button>
+                  <p className="text-white/50 text-xs">You can skip this and continue</p>
                 </div>
 
                 {error && (
                   <div className="bg-red-500/20 border border-red-400/50 rounded-lg p-3 flex items-start gap-2">
                     <AlertCircle className="w-5 h-5 text-red-300 flex-shrink-0 mt-0.5" />
                     <p className="text-red-200 text-sm">{error}</p>
+                  </div>
+                )}
+
+                {successMessage && (
+                  <div className="bg-green-500/20 border border-green-400/50 rounded-lg p-3 flex items-start gap-2">
+                    <Check className="w-5 h-5 text-green-300 flex-shrink-0 mt-0.5" />
+                    <p className="text-green-200 text-sm font-semibold">{successMessage}</p>
                   </div>
                 )}
 
