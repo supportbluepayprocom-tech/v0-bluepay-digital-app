@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, Camera, Mail, Phone, MapPin, TrendingUp, Users } from 'lucide-react'
-import { createClient } from '@supabase/supabase-js'
+import { getCurrentUser, logoutUser } from '@/lib/auth-local'
 
 export default function ProfilePage() {
   const router = useRouter()
@@ -14,22 +14,19 @@ export default function ProfilePage() {
   const [isUploading, setIsUploading] = useState(false)
 
   useEffect(() => {
-    const loadUserData = async () => {
+    const loadUserData = () => {
       try {
-        const supabase = createClient(
-          process.env.NEXT_PUBLIC_SUPABASE_URL!,
-          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-        )
-        const { data: { session } } = await supabase.auth.getSession()
-        if (session?.user) {
-          setEmail(session.user.email || '')
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('full_name, profile_image_url')
-            .eq('id', session.user.id)
-            .single()
-          if (profile?.full_name) setFullName(profile.full_name)
-          if (profile?.profile_image_url) setProfileImage(profile.profile_image_url)
+        const user = getCurrentUser()
+        if (user) {
+          setEmail(user.email)
+          setFullName(user.fullName)
+          const profileImage = localStorage.getItem('userProfileImage')
+          if (profileImage) {
+            setProfileImage(profileImage)
+          }
+        } else {
+          // No user session, redirect to signin
+          router.push('/signin')
         }
       } catch (err) {
         console.error('[v0] Error loading profile:', err)
@@ -44,38 +41,37 @@ export default function ProfilePage() {
 
     setIsUploading(true)
     try {
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      )
-      
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) return
-
-      // Upload to storage
-      const filename = `profile-${session.user.id}-${Date.now()}.jpg`
-      const { data, error } = await supabase.storage
-        .from('profile-images')
-        .upload(filename, file)
-
-      if (error) throw error
-
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('profile-images')
-        .getPublicUrl(filename)
-
-      setProfileImage(publicUrl)
-
-      // Update profile
-      await supabase
-        .from('profiles')
-        .update({ profile_image_url: publicUrl })
-        .eq('id', session.user.id)
+      const reader = new FileReader()
+      reader.onload = (event) => {
+        const imageData = event.target?.result as string
+        setProfileImage(imageData)
+        localStorage.setItem('userProfileImage', imageData)
+      }
+      reader.readAsDataURL(file)
     } catch (err) {
       console.error('[v0] Error uploading image:', err)
     } finally {
       setIsUploading(false)
+    }
+  }
+
+  const handleLogout = () => {
+    try {
+      // Clear session from localStorage
+      logoutUser()
+      
+      // Clear other user-related data but keep auth data structure
+      localStorage.removeItem('userProfileImage')
+      
+      console.log('[v0] User logged out successfully')
+      
+      // Redirect to signup/create account page
+      router.push('/signup')
+    } catch (err) {
+      console.error('[v0] Error logging out:', err)
+      // Force redirect even if logout fails
+      logoutUser()
+      router.push('/signup')
     }
   }
 
@@ -179,8 +175,11 @@ export default function ProfilePage() {
           <button className="w-full bg-white border border-gray-200 text-gray-900 font-bold py-2.5 rounded-lg hover:bg-gray-50 transition text-sm">
             Notification Preferences
           </button>
-          <button className="w-full bg-red-50 border border-red-200 text-red-600 font-bold py-2.5 rounded-lg hover:bg-red-100 transition text-sm">
-            Sign Out
+          <button
+            onClick={handleLogout}
+            className="w-full bg-red-50 border border-red-200 text-red-600 font-bold py-2.5 rounded-lg hover:bg-red-100 transition text-sm"
+          >
+            LOG OUT
           </button>
         </div>
       </main>

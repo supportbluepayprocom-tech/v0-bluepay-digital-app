@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Upload, Lock, AlertCircle, Check, Eye, EyeOff, Fingerprint } from 'lucide-react'
+import { registerUser } from '@/lib/auth-local'
 
 export default function VerifyPinPage() {
   const router = useRouter()
@@ -22,8 +23,8 @@ export default function VerifyPinPage() {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    const storedEmail = sessionStorage.getItem('signupEmail')
-    const storedName = sessionStorage.getItem('signupFullName')
+    const storedEmail = localStorage.getItem('signupEmail')
+    const storedName = localStorage.getItem('signupFullName')
     
     if (!storedEmail) {
       router.push('/signup')
@@ -33,7 +34,7 @@ export default function VerifyPinPage() {
     setFullName(storedName || 'User')
     // Store name for dashboard
     if (storedName) {
-      sessionStorage.setItem('userName', storedName)
+      localStorage.setItem('userName', storedName)
     }
   }, [router])
 
@@ -47,7 +48,7 @@ export default function VerifyPinPage() {
       reader.onload = (event) => {
         const imageData = event.target?.result as string
         setProfileImage(imageData)
-        sessionStorage.setItem('userProfileImage', imageData)
+        localStorage.setItem('userProfileImage', imageData)
         setUploadedSuccessfully(true)
         setTimeout(() => setUploadedSuccessfully(false), 2000)
       }
@@ -112,17 +113,39 @@ export default function VerifyPinPage() {
     setError('')
 
     try {
-      sessionStorage.setItem('verificationPin', fullPin)
-      sessionStorage.setItem('verified', 'true')
+      const email = localStorage.getItem('signupEmail') || ''
+      const name = localStorage.getItem('signupFullName') || ''
+      
+      console.log('[v0] verify-email: Creating account locally with PIN:', email)
+
+      // Register user in localStorage
+      const newUser = registerUser(email, name, fullPin)
+
+      if (!newUser) {
+        console.error('[v0] verify-email: Registration failed for:', email)
+        setError('Account creation failed. Email may already be registered. Please try again.')
+        setIsLoading(false)
+        return
+      }
+
+      console.log('[v0] verify-email: Account created successfully:', newUser.email)
+
+      // Store profile image if provided
+      if (profileImage) {
+        localStorage.setItem('userProfileImage', profileImage)
+      }
+
+      // Store verification info
+      localStorage.setItem('verificationPin', fullPin)
+      localStorage.setItem('verified', 'true')
       
       setTimeout(() => {
-        sessionStorage.removeItem('signupEmail')
-        sessionStorage.removeItem('signupFullName')
-        sessionStorage.removeItem('verificationPin')
-        sessionStorage.removeItem('verified')
-        router.push('/dashboard')
+        localStorage.removeItem('signupEmail')
+        localStorage.removeItem('signupFullName')
+        router.push('/setup-security')
       }, 800)
     } catch (err) {
+      console.error('[v0] verify-email: Exception:', err)
       setError('Verification failed. Please try again.')
       setIsLoading(false)
     }

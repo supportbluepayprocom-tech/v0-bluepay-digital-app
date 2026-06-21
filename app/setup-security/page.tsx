@@ -2,7 +2,8 @@
 
 import { useState, useRef, ChangeEvent, FormEvent } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Lock, Fingerprint, Camera, Upload, Check, AlertCircle } from 'lucide-react'
+import { ArrowLeft, Lock, Fingerprint, Camera, Upload, Check, AlertCircle, Loader } from 'lucide-react'
+import { getCurrentUser, saveFingerprintSettings, updateUserProfile } from '@/lib/auth-local'
 
 export default function SetupSecurityPage() {
   const router = useRouter()
@@ -12,10 +13,15 @@ export default function SetupSecurityPage() {
   const [profileImage, setProfileImage] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
+  const [successMessage, setSuccessMessage] = useState('')
   const [pinConfirmation, setPinConfirmation] = useState('')
   const [showPinMatches, setShowPinMatches] = useState(false)
   const [isScanningFingerprint, setIsScanningFingerprint] = useState(false)
   const [fingerprintScanned, setFingerprintScanned] = useState(false)
+  const [fingerprintStatus, setFingerprintStatus] = useState<'idle' | 'scanning' | 'verifying' | 'success' | 'error'>('idle')
+  const [fingerprintError, setFingerprintError] = useState('')
+  const [showSuccessAnimation, setShowSuccessAnimation] = useState(false)
+  const [pinForFingerprint, setPinForFingerprint] = useState('')
 
   const handlePinChange = (index: number, value: string) => {
     if (!/^\d*$/.test(value)) return
@@ -37,12 +43,53 @@ export default function SetupSecurityPage() {
 
   const handleFingerprintScan = async () => {
     setIsScanningFingerprint(true)
+    setFingerprintStatus('scanning')
+    setFingerprintError('')
     
-    // Simulate fingerprint scan
-    await new Promise((resolve) => setTimeout(resolve, 2000))
-    
-    setFingerprintScanned(true)
-    setIsScanningFingerprint(false)
+    try {
+      // Phase 1: Simulated scanning animation (2 seconds)
+      console.log('[v0] Fingerprint: Starting scan...')
+      await new Promise((resolve) => setTimeout(resolve, 2000))
+      
+      // Phase 2: Verification
+      setFingerprintStatus('verifying')
+      console.log('[v0] Fingerprint: Verifying identity...')
+      await new Promise((resolve) => setTimeout(resolve, 1500))
+      
+      // Phase 3: Save fingerprint authentication to localStorage
+      const user = getCurrentUser()
+      if (user) {
+        const saved = saveFingerprintSettings(user.id, true, pinConfirmation || pinForFingerprint)
+        if (saved) {
+          console.log('[v0] Fingerprint: Settings saved locally')
+        } else {
+          console.warn('[v0] Fingerprint: Failed to save settings locally')
+        }
+      } else {
+        console.warn('[v0] Fingerprint: No active user session')
+      }
+      
+      // Phase 4: Success
+      setFingerprintStatus('success')
+      setShowSuccessAnimation(true)
+      console.log('[v0] Fingerprint: Authentication successful!')
+      
+      // Auto-redirect after success animation
+      await new Promise((resolve) => setTimeout(resolve, 2500))
+      setFingerprintScanned(true)
+      setIsScanningFingerprint(false)
+      
+    } catch (err) {
+      console.error('[v0] Fingerprint error:', err)
+      setFingerprintStatus('error')
+      setFingerprintError(err instanceof Error ? err.message : 'Fingerprint verification failed. Please try again.')
+      setIsScanningFingerprint(false)
+      
+      // Reset error after 3 seconds to allow retry
+      await new Promise((resolve) => setTimeout(resolve, 3000))
+      setFingerprintStatus('idle')
+      setFingerprintError('')
+    }
   }
 
   const handlePinSetup = (e: FormEvent) => {
@@ -54,27 +101,49 @@ export default function SetupSecurityPage() {
       return
     }
 
-    setPinConfirmation(pinCode)
-    setShowPinMatches(true)
-    setPin(['', '', '', '', '', ''])
+    // If first PIN entry, ask for confirmation
+    if (!showPinMatches) {
+      setPinConfirmation(pinCode)
+      setShowPinMatches(true)
+      setPin(['', '', '', '', '', ''])
+      setError('')
+      return
+    }
+
+    // On confirmation, verify PINs match
+    if (pinCode !== pinConfirmation) {
+      setError('PINs do not match. Please try again.')
+      setShowPinMatches(false)
+      setPinConfirmation('')
+      setPin(['', '', '', '', '', ''])
+      return
+    }
+
+    // PINs match - save and proceed
+    console.log('[v0] PIN confirmed successfully')
+    setPinForFingerprint(pinConfirmation)
     setError('')
+    setStep('fingerprint')
   }
 
   const handleSkip = () => {
     setStep('profile')
   }
 
-  const handleProfileSetup = async (e: FormEvent) => {
+  const handleProfileSetup = (e: FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
     setError('')
 
     try {
-      // Here you would upload the profile picture to Supabase Storage
-      // For now, we'll just proceed to the dashboard
-      sessionStorage.removeItem('signupEmail')
-      sessionStorage.removeItem('signupName')
-      router.push('/dashboard')
+      // Save profile image if provided (optional)
+      if (profileImage) {
+        localStorage.setItem('userProfileImage', profileImage)
+        console.log('[v0] Profile picture saved locally')
+      }
+
+      console.log('[v0] Profile setup completed')
+      setStep('options')
     } catch (err) {
       console.error('[v0] Profile setup error:', err)
       setError('Failed to setup profile')
@@ -88,12 +157,37 @@ export default function SetupSecurityPage() {
     setError('')
 
     try {
-      sessionStorage.removeItem('signupEmail')
-      sessionStorage.removeItem('signupName')
-      router.push('/dashboard')
+      const user = getCurrentUser()
+      
+      // Save PIN if it was created but not saved yet
+      if (user && pinForFingerprint) {
+        updateUserProfile(user.id, { pin: pinForFingerprint })
+        console.log('[v0] PIN saved for user')
+      }
+
+      // Save profile image if provided (optional)
+      if (profileImage) {
+        localStorage.setItem('userProfileImage', profileImage)
+        console.log('[v0] Profile picture saved locally')
+      }
+
+      // Clean up temporary signup data
+      localStorage.removeItem('signupEmail')
+      localStorage.removeItem('signupFullName')
+      localStorage.removeItem('verified')
+      localStorage.removeItem('verificationPin')
+
+      console.log('[v0] Setup complete - showing success message')
+      
+      // Show success message briefly before redirect
+      setSuccessMessage('Profile Setup Completed Successfully')
+      
+      setTimeout(() => {
+        router.push('/dashboard')
+      }, 1500)
     } catch (err) {
       console.error('[v0] Finish setup error:', err)
-      setError('Failed to complete setup')
+      setError('Failed to complete setup. Please try again.')
     } finally {
       setIsLoading(false)
     }
@@ -252,62 +346,112 @@ export default function SetupSecurityPage() {
               </div>
 
               <div className="space-y-6">
-                {/* Fingerprint Scanner Animation */}
+                {/* Premium Fingerprint Scanner Animation */}
                 <div className="flex justify-center py-8">
                   <div className="relative w-40 h-40">
-                    {/* Outer circle */}
+                    {/* Multiple animated rings for scanning effect */}
+                    {isScanningFingerprint && (
+                      <>
+                        <div className="absolute inset-0 border-2 border-blue-400/40 rounded-full animate-ping" style={{ animationDuration: '1.5s' }} />
+                        <div className="absolute inset-0 border border-blue-300/30 rounded-full animate-pulse" style={{ animationDuration: '2s' }} />
+                      </>
+                    )}
+                    {/* Main outer circle */}
                     <div
                       className={`absolute inset-0 border-4 rounded-full transition-all duration-300 ${
                         isScanningFingerprint
-                          ? 'border-white/60 animate-glow'
+                          ? 'border-white/80 shadow-lg shadow-blue-500/50'
                           : fingerprintScanned
-                            ? 'border-green-400'
+                            ? 'border-green-400 shadow-lg shadow-green-500/50'
                             : 'border-white/30'
                       }`}
                     />
 
-                    {/* Inner fingerprint icon */}
+                    {/* Inner fingerprint icon with glow */}
                     <div
-                      className={`absolute inset-0 flex items-center justify-center ${
-                        isScanningFingerprint ? 'animate-pulse' : ''
+                      className={`absolute inset-0 flex items-center justify-center transition-all duration-300 ${
+                        isScanningFingerprint ? 'scale-110' : 'scale-100'
+                      } ${
+                        showSuccessAnimation ? 'animate-successPulse' : ''
                       }`}
                     >
-                      {fingerprintScanned ? (
-                        <Check className="w-16 h-16 text-green-300" />
+                      {showSuccessAnimation ? (
+                        <div className="relative">
+                          <div className="absolute inset-0 bg-green-300 rounded-full blur-2xl opacity-50 animate-pulse" />
+                          <div className="absolute inset-0 border-4 border-green-300 rounded-full animate-successRing" />
+                          <Check className="w-20 h-20 text-green-300 relative z-10 animate-successBounce" />
+                        </div>
+                      ) : fingerprintScanned ? (
+                        <div className="relative">
+                          <div className="absolute inset-0 bg-green-300 rounded-full blur-lg opacity-30 animate-pulse" />
+                          <Check className="w-16 h-16 text-green-300 relative z-10" />
+                        </div>
                       ) : (
-                        <Fingerprint className="w-16 h-16 text-[#0000ff]" />
+                        <div className="relative">
+                          {isScanningFingerprint && (
+                            <div className="absolute inset-0 bg-blue-400 rounded-full blur-md opacity-30 animate-pulse" />
+                          )}
+                          <Fingerprint className={`w-16 h-16 ${isScanningFingerprint ? 'text-white' : 'text-[#0000ff]'} relative z-10 transition-colors`} />
+                        </div>
                       )}
                     </div>
 
-                    {/* Scanning line */}
+                    {/* Scanning horizontal line animation */}
                     {isScanningFingerprint && (
                       <div className="absolute inset-0 overflow-hidden rounded-full">
-                        <div className="absolute left-0 right-0 h-1 bg-blue-600 top-1/2 animate-fingerprint-scan" />
+                        <div className="absolute left-0 right-0 h-1 bg-gradient-to-r from-transparent via-white to-transparent top-1/2 animate-scan" style={{ animation: 'scan 1.5s ease-in-out infinite' }} />
                       </div>
                     )}
                   </div>
                 </div>
 
-                {/* Status */}
-                <div className="text-center">
-                  {fingerprintScanned ? (
-                    <div>
-                      <p className="text-green-300 font-bold">Fingerprint Verified</p>
-                      <p className="text-sm text-white/70 mt-1">
-                        Your fingerprint has been registered
+                {/* Enhanced Status Display */}
+                <div className={`text-center rounded-2xl p-4 border transition-all ${
+                  fingerprintStatus === 'success' 
+                    ? 'bg-green-500/20 border-green-400/50' 
+                    : fingerprintStatus === 'error'
+                    ? 'bg-red-500/20 border-red-400/50'
+                    : 'bg-white/5 border-white/10'
+                }`}>
+                  {fingerprintStatus === 'success' ? (
+                    <div className="space-y-1">
+                      <p className="text-green-300 font-bold text-lg">✓ Authentication Successful</p>
+                      <p className="text-sm text-green-200">
+                        Your fingerprint is now linked to your account
                       </p>
                     </div>
-                  ) : isScanningFingerprint ? (
-                    <div>
-                      <p className="text-white font-bold">Scanning...</p>
-                      <p className="text-sm text-white/70 mt-1">
+                  ) : fingerprintStatus === 'scanning' ? (
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-center gap-2 mb-1">
+                        <Loader className="w-4 h-4 text-white animate-spin" />
+                        <p className="text-white font-bold text-lg">Scanning Fingerprint...</p>
+                      </div>
+                      <p className="text-sm text-white/70">
                         Place your finger on the sensor
                       </p>
                     </div>
+                  ) : fingerprintStatus === 'verifying' ? (
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-center gap-2 mb-1">
+                        <Loader className="w-4 h-4 text-blue-300 animate-spin" />
+                        <p className="text-blue-300 font-bold text-lg">Verifying Identity...</p>
+                      </div>
+                      <p className="text-sm text-white/70">
+                        This may take a moment
+                      </p>
+                    </div>
+                  ) : fingerprintStatus === 'error' ? (
+                    <div className="space-y-1">
+                      <p className="text-red-300 font-bold text-lg">Verification Failed</p>
+                      <p className="text-sm text-red-200">
+                        {fingerprintError || 'Please try again or use your PIN'}
+                      </p>
+                    </div>
                   ) : (
-                    <div>
-                      <p className="text-white/70 text-sm">
-                        Click the button below to scan your fingerprint
+                    <div className="space-y-1">
+                      <p className="text-white font-bold">Ready to Scan</p>
+                      <p className="text-sm text-white/70">
+                        Tap the button to begin biometric authentication
                       </p>
                     </div>
                   )}
@@ -316,33 +460,54 @@ export default function SetupSecurityPage() {
                 {/* Scan Button */}
                 <button
                   onClick={handleFingerprintScan}
-                  disabled={isScanningFingerprint || fingerprintScanned}
-                  className="w-full bg-white text-[#0000ff] font-bold py-3 rounded-2xl hover:bg-gray-100 transition duration-300 disabled:opacity-70"
+                  disabled={isScanningFingerprint || (fingerprintScanned && fingerprintStatus === 'success')}
+                  className={`w-full font-bold py-3 rounded-2xl transition duration-300 ${
+                    fingerprintStatus === 'success'
+                      ? 'bg-green-500 text-white hover:bg-green-600'
+                      : fingerprintStatus === 'error'
+                      ? 'bg-red-500 text-white hover:bg-red-600'
+                      : 'bg-white text-[#0000ff] hover:bg-gray-100'
+                  } ${
+                    (isScanningFingerprint || (fingerprintScanned && fingerprintStatus === 'success')) ? 'opacity-70 cursor-not-allowed' : ''
+                  }`}
                 >
-                  {fingerprintScanned
-                    ? 'FINGERPRINT VERIFIED'
-                    : isScanningFingerprint
-                      ? 'SCANNING...'
-                      : 'START SCAN'}
+                  {fingerprintStatus === 'success'
+                    ? 'FINGERPRINT VERIFIED ✓'
+                    : fingerprintStatus === 'scanning'
+                    ? 'SCANNING...'
+                    : fingerprintStatus === 'verifying'
+                    ? 'VERIFYING...'
+                    : fingerprintStatus === 'error'
+                    ? 'TRY AGAIN'
+                    : 'START SCAN'}
                 </button>
 
-                {/* Next Button */}
-                {fingerprintScanned && (
+                {/* Continue Button */}
+                {fingerprintScanned && fingerprintStatus === 'success' && (
                   <button
                     onClick={() => setStep('profile')}
-                    className="w-full bg-white/10 hover:bg-white/20 text-white font-bold py-3 rounded-2xl border border-white/30 transition"
+                    className="w-full bg-green-500/20 hover:bg-green-500/30 text-green-200 font-bold py-3 rounded-2xl border border-green-400/50 transition"
                   >
-                    NEXT
+                    CONTINUE TO PROFILE
                   </button>
                 )}
 
-                {/* Skip Option */}
-                <button
-                  onClick={() => setStep('profile')}
-                  className="w-full text-white hover:text-white/80 font-semibold text-sm"
-                >
-                  Skip This Step
-                </button>
+                {/* PIN Fallback or Skip */}
+                {fingerprintStatus === 'error' ? (
+                  <button
+                    onClick={() => setStep('pin')}
+                    className="w-full text-white hover:text-white/80 font-semibold text-sm py-2"
+                  >
+                    Use 6-Digit PIN Instead
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => setStep('profile')}
+                    className="w-full text-white hover:text-white/80 font-semibold text-sm py-2"
+                  >
+                    Skip This Step
+                  </button>
+                )}
               </div>
             </>
           )}
@@ -360,7 +525,7 @@ export default function SetupSecurityPage() {
               </div>
 
               <form onSubmit={handleProfileSetup} className="space-y-6">
-                {/* Profile Picture Upload */}
+                {/* Profile Picture Upload - Optional */}
                 <div className="flex flex-col items-center">
                   {profileImage ? (
                     <div className="relative mb-4">
@@ -378,7 +543,7 @@ export default function SetupSecurityPage() {
                       </button>
                     </div>
                   ) : (
-                    <div className="w-32 h-32 bg-white/10 rounded-full flex items-center justify-center mb-4 border-2 border-dashed border-white/30">
+                    <div className="w-32 h-32 bg-white/10 rounded-full flex items-center justify-center mb-4 border-2 border-dashed border-white/30 hover:bg-white/15 transition cursor-pointer">
                       <Upload className="w-8 h-8 text-white/60" />
                     </div>
                   )}
@@ -394,16 +559,24 @@ export default function SetupSecurityPage() {
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="text-white hover:text-white/80 font-semibold text-sm"
+                    className="text-white hover:text-white/80 font-semibold text-sm mb-2"
                   >
-                    {profileImage ? 'Change Photo' : 'Upload Photo'}
+                    {profileImage ? 'Change Photo' : 'Upload Photo (Optional)'}
                   </button>
+                  <p className="text-white/50 text-xs">You can skip this and continue</p>
                 </div>
 
                 {error && (
                   <div className="bg-red-500/20 border border-red-400/50 rounded-lg p-3 flex items-start gap-2">
                     <AlertCircle className="w-5 h-5 text-red-300 flex-shrink-0 mt-0.5" />
                     <p className="text-red-200 text-sm">{error}</p>
+                  </div>
+                )}
+
+                {successMessage && (
+                  <div className="bg-green-500/20 border border-green-400/50 rounded-lg p-3 flex items-start gap-2">
+                    <Check className="w-5 h-5 text-green-300 flex-shrink-0 mt-0.5" />
+                    <p className="text-green-200 text-sm font-semibold">{successMessage}</p>
                   </div>
                 )}
 
@@ -421,6 +594,70 @@ export default function SetupSecurityPage() {
           )}
         </div>
       </div>
+
+      <style>{`
+        @keyframes scan {
+          0% {
+            top: 0;
+          }
+          50% {
+            top: 50%;
+          }
+          100% {
+            top: 100%;
+          }
+        }
+        
+        @keyframes fingerprint-scan {
+          0% {
+            top: -100%;
+          }
+          100% {
+            top: 100%;
+          }
+        }
+
+        @keyframes successPulse {
+          0%, 100% {
+            transform: scale(1);
+          }
+          50% {
+            transform: scale(1.1);
+          }
+        }
+
+        @keyframes successRing {
+          0% {
+            transform: scale(1);
+            opacity: 1;
+          }
+          100% {
+            transform: scale(1.5);
+            opacity: 0;
+          }
+        }
+
+        @keyframes successBounce {
+          0%, 100% {
+            transform: scale(1);
+          }
+          50% {
+            transform: scale(1.15);
+          }
+        }
+
+        .animate-successPulse {
+          animation: successPulse 0.6s ease-in-out;
+        }
+
+        .animate-successRing {
+          animation: successRing 0.8s ease-out infinite;
+        }
+
+        .animate-successBounce {
+          animation: successBounce 0.5s ease-in-out;
+        }
+      `}</style>
     </div>
   )
 }

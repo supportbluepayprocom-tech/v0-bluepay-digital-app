@@ -30,7 +30,7 @@ import {
   MessageSquare,
   Camera,
 } from 'lucide-react'
-import { createClient } from '@supabase/supabase-js'
+import { getCurrentUser, logoutUser } from '@/lib/auth-local'
 import { getBalance, getTransactions, getFinancialTransactions, initializeBalance, isEarningsPaused } from '@/lib/balance-store'
 import { getTimeBasedGreeting } from '@/lib/lib/greeting'
 import BPCNotificationModal from '@/components/BPCNotificationModal'
@@ -131,7 +131,7 @@ export default function DashboardPage() {
   // Set greeting based on current time
   useEffect(() => {
     const timeGreeting = getTimeBasedGreeting()
-    const userName = sessionStorage.getItem('userName') || fullName || 'User'
+    const userName = fullName || localStorage.getItem('userName') || localStorage.getItem('signupFullName') || 'User'
     setGreeting(`${timeGreeting}, ${userName}`)
   }, [fullName])
 
@@ -204,35 +204,17 @@ export default function DashboardPage() {
 
   const handleProfileImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
-    if (!file || !userId) return
+    if (!file) return
 
     setIsUploadingProfile(true)
     try {
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      )
-
-      // Upload to storage
-      const filename = `profile-${userId}-${Date.now()}.jpg`
-      const { data, error } = await supabase.storage
-        .from('profile-images')
-        .upload(filename, file)
-
-      if (error) throw error
-
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('profile-images')
-        .getPublicUrl(filename)
-
-      setProfileImage(publicUrl)
-
-      // Update profile
-      await supabase
-        .from('profiles')
-        .update({ profile_image_url: publicUrl })
-        .eq('id', userId)
+      const reader = new FileReader()
+      reader.onload = (event) => {
+        const imageData = event.target?.result as string
+        setProfileImage(imageData)
+        localStorage.setItem('userProfileImage', imageData)
+      }
+      reader.readAsDataURL(file)
     } catch (err) {
       console.error('[v0] Error uploading profile image:', err)
     } finally {
@@ -250,28 +232,21 @@ export default function DashboardPage() {
 
   async function loadUserData() {
     try {
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      )
-      const { data: { session } } = await supabase.auth.getSession()
+      // Load user from local auth
+      const user = getCurrentUser()
 
-      if (session?.user) {
-        setUserId(session.user.id)
-        setUserEmail(session.user.email || '')
+      if (user) {
+        setUserId(user.id)
+        setUserEmail(user.email)
+        setFullName(user.fullName)
+        
+        // Save name to localStorage for persistence
+        localStorage.setItem('userName', user.fullName)
 
-        // Fetch user profile
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('full_name, profile_image_url')
-          .eq('id', session.user.id)
-          .single()
-
-        if (profile?.full_name) {
-          setFullName(profile.full_name)
-        }
-        if (profile?.profile_image_url) {
-          setProfileImage(profile.profile_image_url)
+        // Load profile image if available
+        const storedImage = localStorage.getItem('userProfileImage')
+        if (storedImage) {
+          setProfileImage(storedImage)
         }
 
         // Load balance from unified store
@@ -292,14 +267,19 @@ export default function DashboardPage() {
         setTransactions(txData)
         setLoadingTransactions(false)
       } else {
-        // Fallback to session storage if not authenticated
-        const storedName = sessionStorage.getItem('signupFullName')
-        const storedEmail = sessionStorage.getItem('signupEmail')
+        // Fallback to localStorage if user not found in current session
+        const storedName = localStorage.getItem('userName') || localStorage.getItem('signupFullName')
+        const storedEmail = localStorage.getItem('userEmail') || localStorage.getItem('signupEmail')
         if (storedName) {
           setFullName(storedName)
         }
         if (storedEmail) {
           setUserEmail(storedEmail)
+        }
+        
+        const storedImage = localStorage.getItem('userProfileImage')
+        if (storedImage) {
+          setProfileImage(storedImage)
         }
         
         const initialBalance = initializeBalance()
@@ -320,9 +300,18 @@ export default function DashboardPage() {
       }
     } catch (err) {
       console.error('[v0] Error loading user data:', err)
-      const storedName = sessionStorage.getItem('signupFullName')
+      const storedName = localStorage.getItem('userName') || localStorage.getItem('signupFullName')
+      const storedEmail = localStorage.getItem('userEmail') || localStorage.getItem('signupEmail')
       if (storedName) {
         setFullName(storedName)
+      }
+      if (storedEmail) {
+        setUserEmail(storedEmail)
+      }
+      
+      const storedImage = localStorage.getItem('userProfileImage')
+      if (storedImage) {
+        setProfileImage(storedImage)
       }
       
       const initialBalance = initializeBalance()
@@ -336,10 +325,6 @@ export default function DashboardPage() {
       } else {
         setEarningsPaused(isEarningsPaused())
       }
-      
-      const txData = getTransactions()
-      setTransactions(txData)
-      setLoadingTransactions(false)
     }
   }
 
@@ -379,8 +364,23 @@ export default function DashboardPage() {
   }, [])
 
   const handleLogout = () => {
-    sessionStorage.clear()
-    router.push('/')
+    try {
+      // Clear session from localStorage
+      logoutUser()
+      
+      // Clear other user-related data
+      localStorage.removeItem('userProfileImage')
+      
+      console.log('[v0] User logged out successfully')
+      
+      // Redirect to signup page
+      router.push('/signup')
+    } catch (err) {
+      console.error('[v0] Error logging out:', err)
+      // Force redirect even if logout fails
+      logoutUser()
+      router.push('/signup')
+    }
   }
 
   const primaryButtons = [
@@ -573,35 +573,49 @@ export default function DashboardPage() {
             {/* Spacing between banner and transactions */}
             <div className="h-3" />
 
-            {/* Transaction History */}
-            <h3 className="text-xs font-bold text-gray-900 mb-2">Recent Transactions</h3>
-            <div className="space-y-1 max-h-48 overflow-y-auto">
-              {loadingTransactions ? (
-                <p className="text-xs text-gray-600 text-center py-2">Loading...</p>
-              ) : transactions.filter(tx => ['withdrawal', 'airtime', 'data', 'betting', 'electricity', 'tv'].includes(tx.type)).length === 0 ? (
-                <p className="text-xs text-gray-600 text-center py-2">No transactions yet</p>
-              ) : (
-                transactions.filter(tx => ['withdrawal', 'airtime', 'data', 'betting', 'electricity', 'tv'].includes(tx.type)).slice(0, 8).map((tx, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => router.push(`/transaction-details?id=${tx.id}`)}
-                    className="w-full flex items-center justify-between p-2 bg-gray-50 rounded hover:bg-gray-100 transition text-left"
-                  >
-                    <div className="flex items-center gap-2 flex-1 min-w-0">
-                      <div className={`p-1.5 rounded ${getTransactionColor(tx.type)}`}>
-                        {getTransactionIcon(tx.type)}
+            {/* Transaction History - Fintech Style */}
+            <div className="bg-gradient-to-b from-white to-gray-50 rounded-2xl border border-gray-200 shadow-sm p-4 mb-2">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-bold text-gray-900">Recent Transactions</h3>
+                <button
+                  onClick={() => router.push('/transactions')}
+                  className="text-xs font-semibold text-[#0000ff] hover:opacity-70 transition"
+                >
+                  View All
+                </button>
+              </div>
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {loadingTransactions ? (
+                  <p className="text-xs text-gray-600 text-center py-4">Loading...</p>
+                ) : transactions.filter(tx => ['withdrawal', 'airtime', 'data', 'betting', 'electricity', 'tv'].includes(tx.type)).length === 0 ? (
+                  <div className="text-center py-6">
+                    <p className="text-xs text-gray-500">No transactions yet</p>
+                    <p className="text-xs text-gray-400 mt-1">Your transactions will appear here</p>
+                  </div>
+                ) : (
+                  transactions.filter(tx => ['withdrawal', 'airtime', 'data', 'betting', 'electricity', 'tv'].includes(tx.type)).slice(0, 5).map((tx, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => router.push(`/transaction-details?id=${tx.id}`)}
+                      className="w-full flex items-center justify-between p-3 bg-white rounded-xl hover:bg-blue-50 transition text-left border border-gray-100 hover:border-[#0000ff]/30"
+                    >
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <div className={`p-2.5 rounded-full flex items-center justify-center ${getTransactionColor(tx.type)}`}>
+                          {getTransactionIcon(tx.type)}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-gray-900 truncate">{tx.description}</p>
+                          <p className="text-xs text-gray-500">{formatDate(tx.created_at)}</p>
+                        </div>
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-semibold text-gray-900 truncate">{tx.description}</p>
-                        <p className="text-xs text-gray-500">{formatDate(tx.created_at)}</p>
+                      <div className="text-right ml-3">
+                        <p className="text-sm font-bold text-red-600">-₦{Math.abs(tx.amount).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                        <p className="text-xs text-gray-500 mt-0.5">Debit</p>
                       </div>
-                    </div>
-                    <div className="text-right ml-2">
-                      <p className="text-xs font-bold text-red-600">-₦{Math.abs(tx.amount).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                    </div>
-                  </button>
-                ))
-              )}
+                    </button>
+                  ))
+                )}
+              </div>
             </div>
           </>
         )}
@@ -635,34 +649,37 @@ export default function DashboardPage() {
         )}
       </main>
 
-      {/* Floating Customer Support Button */}
-      <button
-        onClick={() => {
-          window.open('https://wa.me/2347078434086?text=Hello%20BLUEPAY%20Support%2C%20I%20need%20assistance.', '_blank')
-        }}
-        className="fixed bottom-24 right-4 w-14 h-14 bg-green-500 text-white rounded-full shadow-lg hover:shadow-xl hover:scale-110 transition flex items-center justify-center z-40"
-        title="Chat with Grace"
-      >
-        <MessageCircle className="w-6 h-6" />
-        <span className="absolute bottom-full mb-2 right-0 bg-gray-900 text-white text-xs px-2 py-1 rounded-lg whitespace-nowrap opacity-0 hover:opacity-100 transition pointer-events-none">
-          Hi I&apos;m Grace
-        </span>
-      </button>
+      {/* Floating Customer Support Buttons - Positioned above bottom nav */}
+      <div className="fixed bottom-24 right-4 z-40 flex flex-col gap-3">
+        {/* Floating Customer Support Button */}
+        <button
+          onClick={() => {
+            window.open('https://wa.me/2347078434086?text=Hello%20BLUEPAY%20Support%2C%20I%20need%20assistance.', '_blank')
+          }}
+          className="w-14 h-14 bg-green-500 text-white rounded-full shadow-lg hover:shadow-xl hover:scale-110 transition flex items-center justify-center group"
+          title="Chat with Grace"
+        >
+          <MessageCircle className="w-6 h-6" />
+          <span className="absolute right-full mr-2 bg-gray-900 text-white text-xs px-2 py-1 rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition pointer-events-none">
+            Hi I&apos;m Grace
+          </span>
+        </button>
 
-      {/* Floating Telegram Join Button with Animation */}
-      <button
-        onClick={() => {
-          window.open('https://t.me/bluepay2', '_blank')
-        }}
-        className="fixed bottom-32 right-4 w-14 h-14 bg-blue-500 text-white rounded-full shadow-lg hover:shadow-xl transition flex items-center justify-center z-40 animate-bounce"
-        style={{ animation: 'bounce 2s infinite' }}
-        title="Join our Telegram"
-      >
-        <MessageSquare className="w-6 h-6" />
-        <span className="absolute bottom-full mb-2 right-0 bg-gray-900 text-white text-xs px-2 py-1 rounded-lg whitespace-nowrap opacity-0 hover:opacity-100 transition pointer-events-none">
-          Join TELEGRAM
-        </span>
-      </button>
+        {/* Floating Telegram Join Button with Animation */}
+        <button
+          onClick={() => {
+            window.open('https://t.me/bluepay2', '_blank')
+          }}
+          className="w-14 h-14 bg-blue-500 text-white rounded-full shadow-lg hover:shadow-xl transition flex items-center justify-center group animate-bounce"
+          style={{ animation: 'bounce 2s infinite' }}
+          title="Join our Telegram"
+        >
+          <MessageSquare className="w-6 h-6" />
+          <span className="absolute right-full mr-2 bg-gray-900 text-white text-xs px-2 py-1 rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition pointer-events-none">
+            Join TELEGRAM
+          </span>
+        </button>
+      </div>
 
       <style>{`
         @keyframes bounce {

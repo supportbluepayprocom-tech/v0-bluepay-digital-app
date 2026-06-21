@@ -168,7 +168,7 @@ interface CompletedTask {
   completedAt: number // timestamp
 }
 
-// Mark a task as completed with timestamp
+// Mark a task as completed with timestamp (per-task 24-hour rotation)
 export function completeTask(taskId: number): void {
   if (typeof window === 'undefined') return
   
@@ -176,37 +176,69 @@ export function completeTask(taskId: number): void {
     const stored = localStorage.getItem(COMPLETED_TASKS_KEY)
     const completed: CompletedTask[] = stored ? JSON.parse(stored) : []
     
-    // Check if already completed
-    if (completed.some(t => t.id === taskId)) {
-      return
+    // Check if already completed today (within 24 hours)
+    const existingTask = completed.find(t => t.id === taskId)
+    if (existingTask) {
+      const hoursPassed = (Date.now() - existingTask.completedAt) / (1000 * 60 * 60)
+      if (hoursPassed < 24) {
+        return // Task still locked for less than 24 hours
+      } else {
+        // 24 hours have passed, remove old entry to allow repeat
+        const index = completed.indexOf(existingTask)
+        completed.splice(index, 1)
+      }
     }
     
     completed.push({ id: taskId, completedAt: Date.now() })
     localStorage.setItem(COMPLETED_TASKS_KEY, JSON.stringify(completed))
-    
-    // Update rotation date to today
-    const today = new Date().toISOString().split('T')[0]
-    localStorage.setItem(TASK_ROTATION_DATE_KEY, today)
   } catch (err) {
     console.error('[v0] Error completing task:', err)
   }
 }
 
-// Check if a task is completed
+// Check if a task is completed and locked (within 24 hours)
 export function isTaskCompleted(taskId: number): boolean {
   if (typeof window === 'undefined') return false
   
   try {
     const stored = localStorage.getItem(COMPLETED_TASKS_KEY)
     const completed: CompletedTask[] = stored ? JSON.parse(stored) : []
-    return completed.some(t => t.id === taskId)
+    
+    const task = completed.find(t => t.id === taskId)
+    if (!task) return false
+    
+    // Check if 24 hours have passed
+    const hoursPassed = (Date.now() - task.completedAt) / (1000 * 60 * 60)
+    return hoursPassed < 24 // Task is completed if less than 24 hours have passed
   } catch (err) {
     console.error('[v0] Error checking task:', err)
     return false
   }
 }
 
-// Check if 24 hours have passed since task was completed
+// Get time remaining for a specific task (in minutes)
+export function getTaskTimeRemaining(taskId: number): number {
+  if (typeof window === 'undefined') return 0
+  
+  try {
+    const stored = localStorage.getItem(COMPLETED_TASKS_KEY)
+    const completed: CompletedTask[] = stored ? JSON.parse(stored) : []
+    
+    const task = completed.find(t => t.id === taskId)
+    if (!task) return 0
+    
+    const hoursPassed = (Date.now() - task.completedAt) / (1000 * 60 * 60)
+    if (hoursPassed >= 24) return 0 // Can do task again
+    
+    const minutesRemaining = Math.ceil((24 - hoursPassed) * 60)
+    return Math.max(0, minutesRemaining)
+  } catch (err) {
+    console.error('[v0] Error getting time remaining:', err)
+    return 0
+  }
+}
+
+// Check if 24 hours have passed since any task was completed
 export function canRotateTask(): boolean {
   if (typeof window === 'undefined') return false
   
@@ -217,11 +249,11 @@ export function canRotateTask(): boolean {
     const completed: CompletedTask[] = JSON.parse(stored)
     if (completed.length === 0) return false
     
-    const lastCompleted = completed[completed.length - 1]
-    const now = Date.now()
-    const hoursPassed = (now - lastCompleted.completedAt) / (1000 * 60 * 60)
-    
-    return hoursPassed >= 24
+    // Check if ANY task can be repeated (24 hours passed)
+    return completed.some(t => {
+      const hoursPassed = (Date.now() - t.completedAt) / (1000 * 60 * 60)
+      return hoursPassed >= 24
+    })
   } catch (err) {
     console.error('[v0] Error checking rotation:', err)
     return false

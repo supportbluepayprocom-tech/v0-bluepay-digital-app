@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, CheckCircle, Gift, Zap, Star, Trophy, Lock } from 'lucide-react'
 import { createClient } from '@supabase/supabase-js'
-import { getBalance, addBalance, addTransaction, isEarningsPaused, isTaskCompleted, completeTask, canRotateTask } from '@/lib/balance-store'
+import { getBalance, addBalance, addTransaction, isEarningsPaused, isTaskCompleted, completeTask, canRotateTask, getTaskTimeRemaining } from '@/lib/balance-store'
 import { MAX_BALANCE, EARNINGS_PAUSED_MESSAGE } from '@/lib/constants'
 
 export default function EarnMorePage() {
@@ -16,6 +16,7 @@ export default function EarnMorePage() {
   const [userId, setUserId] = useState('')
   const [claimingTaskId, setClaimingTaskId] = useState<number | null>(null)
   const [earningsPaused, setEarningsPaused] = useState(false)
+  const [taskTimers, setTaskTimers] = useState<Record<number, number>>({})
 
   useEffect(() => {
     setMounted(true)
@@ -49,6 +50,33 @@ export default function EarnMorePage() {
     
     return () => window.removeEventListener('balanceChange', handleBalanceChange)
   }, [])
+
+  // Update timers for locked tasks
+  useEffect(() => {
+    if (!mounted) return
+
+    // Initialize all task timers
+    const initializeTimers = () => {
+      const newTimers: Record<number, number> = {}
+      completedTasks.forEach(taskId => {
+        newTimers[taskId] = getTaskTimeRemaining(taskId)
+      })
+      setTaskTimers(newTimers)
+    }
+
+    initializeTimers()
+
+    // Update timers every minute
+    const interval = setInterval(() => {
+      const newTimers: Record<number, number> = {}
+      completedTasks.forEach(taskId => {
+        newTimers[taskId] = getTaskTimeRemaining(taskId)
+      })
+      setTaskTimers(newTimers)
+    }, 60000) // Update every minute
+
+    return () => clearInterval(interval)
+  }, [mounted, completedTasks])
 
   const loadProfileBalance = async () => {
     try {
@@ -249,7 +277,13 @@ export default function EarnMorePage() {
                     {isCompleted ? (
                       <>
                         <Lock className="w-3 h-3" />
-                        Locked
+                        {taskTimers[task.id] ? (
+                          <span className="text-xs">
+                            {Math.floor(taskTimers[task.id] / 60)}h left
+                          </span>
+                        ) : (
+                          'Locked'
+                        )}
                       </>
                     ) : earningsPaused ? (
                       'Paused'

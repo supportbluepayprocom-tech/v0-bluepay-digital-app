@@ -5,10 +5,13 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import { validateEmail } from '@/lib/utils'
+import { loginUser } from '@/lib/auth-local'
 
 export default function SigninPage() {
   const router = useRouter()
   const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [isLoading, setIsLoading] = useState(false)
   const [generalError, setGeneralError] = useState('')
@@ -24,6 +27,12 @@ export default function SigninPage() {
       newErrors.email = 'Email is required'
     } else if (!validateEmail(email)) {
       newErrors.email = 'Invalid email address'
+    }
+
+    if (!password) {
+      newErrors.password = 'PIN/Password is required'
+    } else if (password.length < 6) {
+      newErrors.password = 'PIN must be at least 6 digits'
     }
 
     setErrors(newErrors)
@@ -49,53 +58,29 @@ export default function SigninPage() {
     setIsLoading(true)
 
     try {
-      console.log('[v0] signin: Verifying account exists for email:', email)
+      console.log('[v0] signin: Authenticating with email:', email)
       
-      // Check if account exists
-      const accountCheckResponse = await fetch('/api/auth/verify-account', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
-      })
+      // Attempt to login using localStorage
+      const user = loginUser(email, password)
 
-      const accountCheckData = await accountCheckResponse.json()
-
-      if (!accountCheckResponse.ok) {
-        console.error('[v0] signin: Account check failed:', accountCheckData)
-        setGeneralError(accountCheckData.error || 'Unable to verify account. Please try again.')
+      if (!user) {
+        console.error('[v0] signin: Authentication failed for:', email)
+        setGeneralError('Invalid email or PIN. Please try again.')
         submitInProgressRef.current = false
+        setIsLoading(false)
         return
       }
 
-      // If account doesn't exist, redirect to signup
-      if (!accountCheckData.exists) {
-        console.log('[v0] signin: Account does not exist - redirecting to signup')
-        setGeneralError('No account found with this email. Please create an account first.')
-        setSuccessMessage('')
-        setTimeout(() => {
-          router.push('/signup')
-        }, 2000)
-        submitInProgressRef.current = false
-        return
-      }
-
-      console.log('[v0] signin: Account verified successfully - redirecting to dashboard')
-      
-      // Account exists - redirect to dashboard immediately
-      setSuccessMessage('Account verified! Redirecting to dashboard...')
-      
-      // Clear session storage and redirect
-      sessionStorage.removeItem('signinEmail')
-      sessionStorage.removeItem('signupEmail')
+      console.log('[v0] signin: User authenticated successfully:', user.email)
+      setSuccessMessage('Sign in successful! Redirecting to dashboard...')
       
       setTimeout(() => {
         router.push('/dashboard')
-      }, 1000)
+      }, 800)
     } catch (error) {
       console.error('[v0] signin: Unexpected error:', error)
-      setGeneralError('Network error. Please try again.')
+      setGeneralError('An error occurred. Please try again.')
       submitInProgressRef.current = false
-    } finally {
       setIsLoading(false)
     }
   }
@@ -152,6 +137,38 @@ export default function SigninPage() {
               )}
             </div>
 
+            {/* Password/PIN Label */}
+            <div>
+              <label className="block text-white font-semibold mb-2 text-sm sm:text-base">
+                6-Digit PIN
+              </label>
+              <div className="relative">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="Enter your 6-digit PIN"
+                  value={password}
+                  onChange={(e) => {
+                    setPassword(e.target.value)
+                    if (errors.password) setErrors({ ...errors, password: '' })
+                  }}
+                  disabled={isLoading}
+                  maxLength={6}
+                  className="w-full px-4 sm:px-6 py-3 sm:py-4 bg-blue-600/40 border border-white/30 rounded-xl sm:rounded-2xl text-white text-sm sm:text-base placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/50 focus:border-white/60 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-white/70 hover:text-white transition"
+                  disabled={isLoading}
+                >
+                  {showPassword ? '👁️‍🗨️' : '👁️'}
+                </button>
+              </div>
+              {errors.password && (
+                <p className="text-red-200 text-xs sm:text-sm mt-1">{errors.password}</p>
+              )}
+            </div>
+
             {/* General Error */}
             {generalError && (
               <div className="bg-red-500/20 border border-red-500/50 rounded-lg p-3 text-red-200 text-xs sm:text-sm">
@@ -168,13 +185,13 @@ export default function SigninPage() {
 
             {/* Cooldown Message - Removed as we don't need cooldown anymore */}
 
-            {/* Continue Button */}
+            {/* Sign In Button */}
             <button
               type="submit"
               disabled={isLoading}
               className="w-full px-4 sm:px-6 py-3 sm:py-4 bg-white text-[#0000ff] font-bold text-sm sm:text-lg rounded-xl sm:rounded-2xl shadow-2xl hover:shadow-xl hover:scale-105 disabled:opacity-70 disabled:cursor-not-allowed disabled:hover:scale-100 transition-all duration-300 active:scale-95"
             >
-              {isLoading ? 'Verifying Account...' : 'Continue'}
+              {isLoading ? 'Signing In...' : 'SIGN IN'}
             </button>
           </form>
 
