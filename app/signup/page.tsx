@@ -57,10 +57,11 @@ export default function SignupPage() {
       // Store credentials in sessionStorage for verify-email page to use
       sessionStorage.setItem('signupEmail', email)
       sessionStorage.setItem('signupFullName', fullName)
+      sessionStorage.setItem('signupPassword', '') // Will be set in verify-email
       
       console.log('[v0] signup: Redirecting to creating-account animation page')
       
-      // Navigate to creating account page which will handle OTP sending
+      // Navigate to creating account page which will handle account creation
       setTimeout(() => {
         router.push('/creating-account')
       }, 300)

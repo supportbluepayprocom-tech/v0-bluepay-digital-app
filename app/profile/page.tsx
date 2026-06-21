@@ -79,6 +79,31 @@ export default function ProfilePage() {
     }
   }
 
+  const handleLogout = async () => {
+    try {
+      const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      )
+      
+      // Sign out from Supabase
+      await supabase.auth.signOut()
+      
+      // Clear all session storage
+      sessionStorage.clear()
+      localStorage.clear()
+      
+      // Redirect to signup/create account page
+      router.push('/signup')
+    } catch (err) {
+      console.error('[v0] Error logging out:', err)
+      // Force redirect even if logout fails
+      sessionStorage.clear()
+      localStorage.clear()
+      router.push('/signup')
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
       {/* Header */}
@@ -179,8 +204,11 @@ export default function ProfilePage() {
           <button className="w-full bg-white border border-gray-200 text-gray-900 font-bold py-2.5 rounded-lg hover:bg-gray-50 transition text-sm">
             Notification Preferences
           </button>
-          <button className="w-full bg-red-50 border border-red-200 text-red-600 font-bold py-2.5 rounded-lg hover:bg-red-100 transition text-sm">
-            Sign Out
+          <button
+            onClick={handleLogout}
+            className="w-full bg-red-50 border border-red-200 text-red-600 font-bold py-2.5 rounded-lg hover:bg-red-100 transition text-sm"
+          >
+            LOG OUT
           </button>
         </div>
       </main>

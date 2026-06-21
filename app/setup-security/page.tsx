@@ -252,62 +252,78 @@ export default function SetupSecurityPage() {
               </div>
 
               <div className="space-y-6">
-                {/* Fingerprint Scanner Animation */}
+                {/* Premium Fingerprint Scanner Animation */}
                 <div className="flex justify-center py-8">
                   <div className="relative w-40 h-40">
-                    {/* Outer circle */}
+                    {/* Multiple animated rings for scanning effect */}
+                    {isScanningFingerprint && (
+                      <>
+                        <div className="absolute inset-0 border-2 border-blue-400/40 rounded-full animate-ping" style={{ animationDuration: '1.5s' }} />
+                        <div className="absolute inset-0 border border-blue-300/30 rounded-full animate-pulse" style={{ animationDuration: '2s' }} />
+                      </>
+                    )}
+                    {/* Main outer circle */}
                     <div
                       className={`absolute inset-0 border-4 rounded-full transition-all duration-300 ${
                         isScanningFingerprint
-                          ? 'border-white/60 animate-glow'
+                          ? 'border-white/80 shadow-lg shadow-blue-500/50'
                           : fingerprintScanned
-                            ? 'border-green-400'
+                            ? 'border-green-400 shadow-lg shadow-green-500/50'
                             : 'border-white/30'
                       }`}
                     />
 
-                    {/* Inner fingerprint icon */}
+                    {/* Inner fingerprint icon with glow */}
                     <div
-                      className={`absolute inset-0 flex items-center justify-center ${
-                        isScanningFingerprint ? 'animate-pulse' : ''
+                      className={`absolute inset-0 flex items-center justify-center transition-all duration-300 ${
+                        isScanningFingerprint ? 'scale-110' : 'scale-100'
                       }`}
                     >
                       {fingerprintScanned ? (
-                        <Check className="w-16 h-16 text-green-300" />
+                        <div className="relative">
+                          <div className="absolute inset-0 bg-green-300 rounded-full blur-lg opacity-30 animate-pulse" />
+                          <Check className="w-16 h-16 text-green-300 relative z-10" />
+                        </div>
                       ) : (
-                        <Fingerprint className="w-16 h-16 text-[#0000ff]" />
+                        <div className="relative">
+                          {isScanningFingerprint && (
+                            <div className="absolute inset-0 bg-blue-400 rounded-full blur-md opacity-30 animate-pulse" />
+                          )}
+                          <Fingerprint className={`w-16 h-16 ${isScanningFingerprint ? 'text-white' : 'text-[#0000ff]'} relative z-10 transition-colors`} />
+                        </div>
                       )}
                     </div>
 
-                    {/* Scanning line */}
+                    {/* Scanning horizontal line animation */}
                     {isScanningFingerprint && (
                       <div className="absolute inset-0 overflow-hidden rounded-full">
-                        <div className="absolute left-0 right-0 h-1 bg-blue-600 top-1/2 animate-fingerprint-scan" />
+                        <div className="absolute left-0 right-0 h-1 bg-gradient-to-r from-transparent via-white to-transparent top-1/2 animate-scan" style={{ animation: 'scan 1.5s ease-in-out infinite' }} />
                       </div>
                     )}
                   </div>
                 </div>
 
-                {/* Status */}
-                <div className="text-center">
+                {/* Enhanced Status Display */}
+                <div className="text-center bg-white/5 rounded-2xl p-4 border border-white/10">
                   {fingerprintScanned ? (
-                    <div>
-                      <p className="text-green-300 font-bold">Fingerprint Verified</p>
-                      <p className="text-sm text-white/70 mt-1">
-                        Your fingerprint has been registered
+                    <div className="space-y-1">
+                      <p className="text-green-300 font-bold text-lg">✓ Fingerprint Verified</p>
+                      <p className="text-sm text-white/70">
+                        Your biometric security is now active
                       </p>
                     </div>
                   ) : isScanningFingerprint ? (
-                    <div>
-                      <p className="text-white font-bold">Scanning...</p>
-                      <p className="text-sm text-white/70 mt-1">
+                    <div className="space-y-1">
+                      <p className="text-white font-bold text-lg">Scanning Fingerprint...</p>
+                      <p className="text-sm text-white/70">
                         Place your finger on the sensor
                       </p>
                     </div>
                   ) : (
-                    <div>
-                      <p className="text-white/70 text-sm">
-                        Click the button below to scan your fingerprint
+                    <div className="space-y-1">
+                      <p className="text-white font-bold">Ready to Scan</p>
+                      <p className="text-sm text-white/70">
+                        Tap the button to begin scanning
                       </p>
                     </div>
                   )}
@@ -326,13 +342,13 @@ export default function SetupSecurityPage() {
                       : 'START SCAN'}
                 </button>
 
-                {/* Next Button */}
+                {/* Continue Button */}
                 {fingerprintScanned && (
                   <button
                     onClick={() => setStep('profile')}
                     className="w-full bg-white/10 hover:bg-white/20 text-white font-bold py-3 rounded-2xl border border-white/30 transition"
                   >
-                    NEXT
+                    CONTINUE
                   </button>
                 )}
 
@@ -421,6 +437,29 @@ export default function SetupSecurityPage() {
           )}
         </div>
       </div>
+
+      <style>{`
+        @keyframes scan {
+          0% {
+            top: 0;
+          }
+          50% {
+            top: 50%;
+          }
+          100% {
+            top: 100%;
+          }
+        }
+        
+        @keyframes fingerprint-scan {
+          0% {
+            top: -100%;
+          }
+          100% {
+            top: 100%;
+          }
+        }
+      `}</style>
     </div>
   )
 }

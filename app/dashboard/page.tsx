@@ -378,9 +378,29 @@ export default function DashboardPage() {
     }
   }, [])
 
-  const handleLogout = () => {
-    sessionStorage.clear()
-    router.push('/')
+  const handleLogout = async () => {
+    try {
+      const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      )
+      
+      // Sign out from Supabase
+      await supabase.auth.signOut()
+      
+      // Clear all session and local storage
+      sessionStorage.clear()
+      localStorage.clear()
+      
+      // Redirect to signup page
+      router.push('/signup')
+    } catch (err) {
+      console.error('[v0] Error logging out:', err)
+      // Force redirect even if logout fails
+      sessionStorage.clear()
+      localStorage.clear()
+      router.push('/signup')
+    }
   }
 
   const primaryButtons = [
@@ -635,34 +655,37 @@ export default function DashboardPage() {
         )}
       </main>
 
-      {/* Floating Customer Support Button */}
-      <button
-        onClick={() => {
-          window.open('https://wa.me/2347078434086?text=Hello%20BLUEPAY%20Support%2C%20I%20need%20assistance.', '_blank')
-        }}
-        className="fixed bottom-24 right-4 w-14 h-14 bg-green-500 text-white rounded-full shadow-lg hover:shadow-xl hover:scale-110 transition flex items-center justify-center z-40"
-        title="Chat with Grace"
-      >
-        <MessageCircle className="w-6 h-6" />
-        <span className="absolute bottom-full mb-2 right-0 bg-gray-900 text-white text-xs px-2 py-1 rounded-lg whitespace-nowrap opacity-0 hover:opacity-100 transition pointer-events-none">
-          Hi I&apos;m Grace
-        </span>
-      </button>
+      {/* Floating Customer Support Buttons - Positioned above bottom nav */}
+      <div className="fixed bottom-24 right-4 z-40 flex flex-col gap-3">
+        {/* Floating Customer Support Button */}
+        <button
+          onClick={() => {
+            window.open('https://wa.me/2347078434086?text=Hello%20BLUEPAY%20Support%2C%20I%20need%20assistance.', '_blank')
+          }}
+          className="w-14 h-14 bg-green-500 text-white rounded-full shadow-lg hover:shadow-xl hover:scale-110 transition flex items-center justify-center group"
+          title="Chat with Grace"
+        >
+          <MessageCircle className="w-6 h-6" />
+          <span className="absolute right-full mr-2 bg-gray-900 text-white text-xs px-2 py-1 rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition pointer-events-none">
+            Hi I&apos;m Grace
+          </span>
+        </button>
 
-      {/* Floating Telegram Join Button with Animation */}
-      <button
-        onClick={() => {
-          window.open('https://t.me/bluepay2', '_blank')
-        }}
-        className="fixed bottom-32 right-4 w-14 h-14 bg-blue-500 text-white rounded-full shadow-lg hover:shadow-xl transition flex items-center justify-center z-40 animate-bounce"
-        style={{ animation: 'bounce 2s infinite' }}
-        title="Join our Telegram"
-      >
-        <MessageSquare className="w-6 h-6" />
-        <span className="absolute bottom-full mb-2 right-0 bg-gray-900 text-white text-xs px-2 py-1 rounded-lg whitespace-nowrap opacity-0 hover:opacity-100 transition pointer-events-none">
-          Join TELEGRAM
-        </span>
-      </button>
+        {/* Floating Telegram Join Button with Animation */}
+        <button
+          onClick={() => {
+            window.open('https://t.me/bluepay2', '_blank')
+          }}
+          className="w-14 h-14 bg-blue-500 text-white rounded-full shadow-lg hover:shadow-xl transition flex items-center justify-center group animate-bounce"
+          style={{ animation: 'bounce 2s infinite' }}
+          title="Join our Telegram"
+        >
+          <MessageSquare className="w-6 h-6" />
+          <span className="absolute right-full mr-2 bg-gray-900 text-white text-xs px-2 py-1 rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition pointer-events-none">
+            Join TELEGRAM
+          </span>
+        </button>
+      </div>
 
       <style>{`
         @keyframes bounce {

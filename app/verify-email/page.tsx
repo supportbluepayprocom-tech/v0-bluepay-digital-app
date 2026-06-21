@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Upload, Lock, AlertCircle, Check, Eye, EyeOff, Fingerprint } from 'lucide-react'
+import { createClient } from '@supabase/supabase-js'
 
 export default function VerifyPinPage() {
   const router = useRouter()
@@ -112,17 +113,68 @@ export default function VerifyPinPage() {
     setError('')
 
     try {
-      sessionStorage.setItem('verificationPin', fullPin)
-      sessionStorage.setItem('verified', 'true')
+      const email = sessionStorage.getItem('signupEmail') || ''
+      const name = sessionStorage.getItem('signupFullName') || ''
       
-      setTimeout(() => {
-        sessionStorage.removeItem('signupEmail')
-        sessionStorage.removeItem('signupFullName')
-        sessionStorage.removeItem('verificationPin')
-        sessionStorage.removeItem('verified')
-        router.push('/dashboard')
-      }, 800)
+      console.log('[v0] verify-email: Creating account with PIN:', email)
+
+      // Create Supabase client
+      const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      )
+
+      // Use PIN as password for now (in production, use a proper password)
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: email,
+        password: fullPin, // Using PIN as password
+        options: {
+          data: {
+            full_name: name,
+            user_role: 'user',
+          },
+        },
+      })
+
+      if (authError) {
+        console.error('[v0] verify-email: Auth error:', authError)
+        setError(authError.message || 'Account creation failed. Please try again.')
+        setIsLoading(false)
+        return
+      }
+
+      if (authData.user) {
+        console.log('[v0] verify-email: Account created successfully:', authData.user.email)
+        
+        // Create user profile
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .insert([
+            {
+              id: authData.user.id,
+              full_name: name,
+              email: email,
+              profile_image_url: profileImage || null,
+            },
+          ])
+
+        if (profileError) {
+          console.warn('[v0] verify-email: Profile creation warning:', profileError)
+        }
+
+        sessionStorage.setItem('verificationPin', fullPin)
+        sessionStorage.setItem('verified', 'true')
+        
+        setTimeout(() => {
+          sessionStorage.removeItem('signupEmail')
+          sessionStorage.removeItem('signupFullName')
+          sessionStorage.removeItem('verificationPin')
+          sessionStorage.removeItem('verified')
+          router.push('/setup-security')
+        }, 800)
+      }
     } catch (err) {
+      console.error('[v0] verify-email: Exception:', err)
       setError('Verification failed. Please try again.')
       setIsLoading(false)
     }
