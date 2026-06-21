@@ -13,13 +13,13 @@ export default function CreatingAccountPage() {
   const [email, setEmail] = useState('')
 
   useEffect(() => {
-    // Get data from session storage
-    const userEmail = sessionStorage.getItem('signupEmail') || ''
+    // Get data from localStorage
+    const userEmail = localStorage.getItem('signupEmail') || ''
     
     console.log('[v0] creating-account: Page loaded with email:', userEmail)
     
     if (!userEmail) {
-      console.log('[v0] creating-account: No email in sessionStorage, redirecting to signup')
+      console.log('[v0] creating-account: No email in localStorage, redirecting to signup')
       router.push('/signup')
       return
     }
