@@ -573,35 +573,49 @@ export default function DashboardPage() {
             {/* Spacing between banner and transactions */}
             <div className="h-3" />
 
-            {/* Transaction History */}
-            <h3 className="text-xs font-bold text-gray-900 mb-2">Recent Transactions</h3>
-            <div className="space-y-1 max-h-48 overflow-y-auto">
-              {loadingTransactions ? (
-                <p className="text-xs text-gray-600 text-center py-2">Loading...</p>
-              ) : transactions.filter(tx => ['withdrawal', 'airtime', 'data', 'betting', 'electricity', 'tv'].includes(tx.type)).length === 0 ? (
-                <p className="text-xs text-gray-600 text-center py-2">No transactions yet</p>
-              ) : (
-                transactions.filter(tx => ['withdrawal', 'airtime', 'data', 'betting', 'electricity', 'tv'].includes(tx.type)).slice(0, 8).map((tx, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => router.push(`/transaction-details?id=${tx.id}`)}
-                    className="w-full flex items-center justify-between p-2 bg-gray-50 rounded hover:bg-gray-100 transition text-left"
-                  >
-                    <div className="flex items-center gap-2 flex-1 min-w-0">
-                      <div className={`p-1.5 rounded ${getTransactionColor(tx.type)}`}>
-                        {getTransactionIcon(tx.type)}
+            {/* Transaction History - Fintech Style */}
+            <div className="bg-gradient-to-b from-white to-gray-50 rounded-2xl border border-gray-200 shadow-sm p-4 mb-2">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-bold text-gray-900">Recent Transactions</h3>
+                <button
+                  onClick={() => router.push('/transactions')}
+                  className="text-xs font-semibold text-[#0000ff] hover:opacity-70 transition"
+                >
+                  View All
+                </button>
+              </div>
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {loadingTransactions ? (
+                  <p className="text-xs text-gray-600 text-center py-4">Loading...</p>
+                ) : transactions.filter(tx => ['withdrawal', 'airtime', 'data', 'betting', 'electricity', 'tv'].includes(tx.type)).length === 0 ? (
+                  <div className="text-center py-6">
+                    <p className="text-xs text-gray-500">No transactions yet</p>
+                    <p className="text-xs text-gray-400 mt-1">Your transactions will appear here</p>
+                  </div>
+                ) : (
+                  transactions.filter(tx => ['withdrawal', 'airtime', 'data', 'betting', 'electricity', 'tv'].includes(tx.type)).slice(0, 5).map((tx, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => router.push(`/transaction-details?id=${tx.id}`)}
+                      className="w-full flex items-center justify-between p-3 bg-white rounded-xl hover:bg-blue-50 transition text-left border border-gray-100 hover:border-[#0000ff]/30"
+                    >
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <div className={`p-2.5 rounded-full flex items-center justify-center ${getTransactionColor(tx.type)}`}>
+                          {getTransactionIcon(tx.type)}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-gray-900 truncate">{tx.description}</p>
+                          <p className="text-xs text-gray-500">{formatDate(tx.created_at)}</p>
+                        </div>
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-semibold text-gray-900 truncate">{tx.description}</p>
-                        <p className="text-xs text-gray-500">{formatDate(tx.created_at)}</p>
+                      <div className="text-right ml-3">
+                        <p className="text-sm font-bold text-red-600">-₦{Math.abs(tx.amount).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                        <p className="text-xs text-gray-500 mt-0.5">Debit</p>
                       </div>
-                    </div>
-                    <div className="text-right ml-2">
-                      <p className="text-xs font-bold text-red-600">-₦{Math.abs(tx.amount).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                    </div>
-                  </button>
-                ))
-              )}
+                    </button>
+                  ))
+                )}
+              </div>
             </div>
           </>
         )}

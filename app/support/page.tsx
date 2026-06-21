@@ -138,56 +138,62 @@ export default function SupportPage() {
         {/* Contact Methods */}
         <div className="bg-gradient-to-r from-blue-50 to-[#0000ff]/5 rounded-2xl p-4 border border-[#0000ff]/20 mb-4">
           <h3 className="font-bold text-gray-900 text-sm mb-3">Contact Support</h3>
-          <div className="grid grid-cols-2 gap-3">
-            {/* Email Support */}
-            <button
-              type="button"
-              onClick={() => {
-                const email = 'supportbluepaypro.com@gmail.com'
-                const subject = 'BLUEPAY Support Request'
-                const body = 'Hello BLUEPAY Support Team,%0A%0AI need assistance with...%0A%0AThank you.'
-                window.open(`mailto:${email}?subject=${subject}&body=${body}`, '_self')
-              }}
-              className="bg-white rounded-lg p-3 border border-gray-200 hover:border-[#0000ff] hover:shadow-md transition flex flex-col items-center text-center gap-2 cursor-pointer w-full"
-            >
-              <Mail className="w-6 h-6 text-[#0000ff]" />
-              <p className="font-semibold text-gray-900 text-xs">Contact Us via Email</p>
-            </button>
+          <div className="flex gap-3">
+            {/* Left Column - Telegram and WhatsApp */}
+            <div className="flex flex-col gap-3 w-1/3">
+              {/* Telegram Channel */}
+              <button
+                type="button"
+                onClick={() => {
+                  const telegramUrl = 'https://t.me/bluepay2'
+                  window.open(telegramUrl, '_blank')
+                }}
+                className="bg-white rounded-lg p-3 border border-gray-200 hover:border-blue-500 hover:shadow-md transition flex flex-col items-center text-center gap-2 cursor-pointer w-full"
+              >
+                <MessageSquareDot className="w-6 h-6 text-blue-500" />
+                <p className="font-semibold text-gray-900 text-xs">Join Telegram Channel</p>
+              </button>
 
-            {/* WhatsApp Support */}
-            <button
-              type="button"
-              onClick={() => {
-                const whatsappUrl = 'https://wa.me/2347078434086?text=Hello%20BLUEPAY%20Support%2C%20I%20need%20assistance.'
-                window.open(whatsappUrl, '_blank')
-              }}
-              className="bg-white rounded-lg p-3 border border-gray-200 hover:border-green-500 hover:shadow-md transition flex flex-col items-center text-center gap-2 cursor-pointer w-full"
-            >
-              <MessageCircle className="w-6 h-6 text-green-500" />
-              <p className="font-semibold text-gray-900 text-xs">Contact Us via WhatsApp</p>
-            </button>
+              {/* WhatsApp Support */}
+              <button
+                type="button"
+                onClick={() => {
+                  const whatsappUrl = 'https://wa.me/2347078434086?text=Hello%20BLUEPAY%20Support%2C%20I%20need%20assistance.'
+                  window.open(whatsappUrl, '_blank')
+                }}
+                className="bg-white rounded-lg p-3 border border-gray-200 hover:border-green-500 hover:shadow-md transition flex flex-col items-center text-center gap-2 cursor-pointer w-full"
+              >
+                <MessageCircle className="w-6 h-6 text-green-500" />
+                <p className="font-semibold text-gray-900 text-xs">Contact Us via WhatsApp</p>
+              </button>
+            </div>
 
-            {/* Telegram Channel */}
-            <button
-              type="button"
-              onClick={() => {
-                const telegramUrl = 'https://t.me/bluepay2'
-                window.open(telegramUrl, '_blank')
-              }}
-              className="bg-white rounded-lg p-3 border border-gray-200 hover:border-blue-500 hover:shadow-md transition flex flex-col items-center text-center gap-2 cursor-pointer w-full"
-            >
-              <MessageSquareDot className="w-6 h-6 text-blue-500" />
-              <p className="font-semibold text-gray-900 text-xs">Join Telegram Channel</p>
-            </button>
+            {/* Right Column - Email and Live Chat */}
+            <div className="flex flex-col gap-3 flex-1">
+              {/* Email Support */}
+              <button
+                type="button"
+                onClick={() => {
+                  const email = 'supportbluepaypro.com@gmail.com'
+                  const subject = 'BLUEPAY Support Request'
+                  const body = 'Hello BLUEPAY Support Team,%0A%0AI need assistance with...%0A%0AThank you.'
+                  window.open(`mailto:${email}?subject=${subject}&body=${body}`, '_self')
+                }}
+                className="bg-white rounded-lg p-3 border border-gray-200 hover:border-[#0000ff] hover:shadow-md transition flex flex-col items-center text-center gap-2 cursor-pointer w-full"
+              >
+                <Mail className="w-6 h-6 text-[#0000ff]" />
+                <p className="font-semibold text-gray-900 text-xs">Contact Us via Email</p>
+              </button>
 
-            {/* Live Chat */}
-            <button
-              onClick={() => setActiveTab('ai-chat')}
-              className="bg-white rounded-lg p-3 border border-gray-200 hover:border-[#0000ff] hover:shadow-md transition flex flex-col items-center text-center gap-2"
-            >
-              <Send className="w-6 h-6 text-[#0000ff]" />
-              <p className="font-semibold text-gray-900 text-xs">Start Live Chat</p>
-            </button>
+              {/* Live Chat */}
+              <button
+                onClick={() => setActiveTab('ai-chat')}
+                className="bg-white rounded-lg p-3 border border-gray-200 hover:border-[#0000ff] hover:shadow-md transition flex flex-col items-center text-center gap-2"
+              >
+                <Send className="w-6 h-6 text-[#0000ff]" />
+                <p className="font-semibold text-gray-900 text-xs">Start Live Chat</p>
+              </button>
+            </div>
           </div>
         </div>
 

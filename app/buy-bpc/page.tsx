@@ -447,7 +447,7 @@ export default function BuyBPCPage() {
                 onClick={handleProceed}
                 className="w-full bg-[#0000ff] text-white font-bold py-2.5 rounded-xl hover:opacity-90 transition text-sm"
               >
-                PROCEED
+                I UNDERSTAND
               </button>
               <button
                 onClick={() => setStep('amount')}
